@@ -60,3 +60,55 @@ def cal_cmd(args):
     except Exception as e:
         print(f"⚠️ Invalid expression: {e}")
         
+@register_command("goto")
+def goto_cmd(args):
+    """
+    Instantly go to any directory or file path from anywhere.
+    Usage:
+      goto <path>
+    Examples:
+      goto /Users/owena
+      goto ../Desktop
+      goto C:\\Projects\\MyApp
+    """
+    import os
+
+    if not args:
+        print("Usage: goto <path>")
+        return
+
+    target = args[0]
+
+    # Expand things like ~ or relative paths
+    target_path = os.path.expanduser(target)
+    target_path = os.path.abspath(target_path)
+
+    if not os.path.exists(target_path):
+        print(f"❌ Path not found: {target_path}")
+        return
+
+    if os.path.isdir(target_path):
+        try:
+            os.chdir(target_path)
+            print(f"📁 Changed directory to: {target_path}")
+        except Exception as e:
+            print(f"⚠️ Error changing directory: {e}")
+    else:
+        print(f"📄 Target is a file: {target_path}")
+
+@register_command("root")
+def root_cmd(args):
+    """
+    Instantly go to the root directory of the system.
+    Usage:
+      root
+    """
+    import os
+
+    try:
+        # Detect platform and set root path
+        root_path = "C:\\" if os.name == "nt" else "/"
+        os.chdir(root_path)
+        print(f"📁 Changed directory to root: {root_path}")
+    except Exception as e:
+        print(f"⚠️ Error changing to root directory: {e}")
