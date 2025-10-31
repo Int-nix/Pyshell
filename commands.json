@@ -37,10 +37,89 @@
 ,
 
 {
+  "name": "admin",
+  "category": "system",
+  "desc": "Relaunches PyNixShell with full Administrator privileges on Windows.",
+  "definition": "Usage:\n  admin          → relaunches PyNixShell as Administrator\n  admin -check   → checks if the current session has Administrator rights\n\nThis command triggers a UAC elevation prompt and restarts the PyNixShell kernel with elevated permissions. Essential for commands requiring system-level access (like 'startup -d' or 'wintask end')."
+}
+,
+
+{
+  "name": "wintask",
+  "category": "system",
+  "desc": "Controls the Windows Taskbar (explorer.exe) process.",
+  "definition": "Usage:\n  wintask end     → disables the Windows Taskbar (kills explorer.exe)\n  wintask start   → restarts the Windows Taskbar (relaunches explorer.exe)\n\nThis command allows you to manually control the Windows Taskbar process. 'end' will terminate explorer.exe, effectively disabling the Taskbar and desktop shell. 'start' will relaunch explorer.exe to restore normal functionality.\n\nExample:\n  wintask end\n  wintask start"
+}
+,
+
+{
+  "name": "startup",
+  "category": "system",
+  "desc": "Scans and classifies all partitions as Windows, Linux, EFI, Recovery, or Reserved.",
+  "definition": "Usage:\n  startup -d   → shows all OS or bootable partitions.\n\nAutomatically labels partitions using known GPT identifiers:\n  💻 Windows Partition\n  🐧 Linux Partition\n  🧩 EFI System Partition\n  🛟 Windows Recovery\n  ⚙️ Microsoft Reserved\n  💾 Linux Swap\n\nExample:\n  startup -d"
+}
+,
+
+{
+  "name": "gitpush",
+  "category": "git",
+  "desc": "Executes a real 'git push -u origin main' command directly from PyNixShell.",
+  "definition": "Usage:\n  gitpush\n\nDescription:\n  Runs the standard Git push command to upload commits to the 'origin' remote on the 'main' branch. Displays the live Git output inside PyNixShell. Works cross-platform.\n\nDetails:\n  • Executes real system-level Git\n  • Compatible with Windows, macOS, and Linux\n  • Shows full Git push output inline\n  • Detects if Git is not installed and provides a clear warning\n\nOutput:\n  Displays all Git push output, followed by success or error message."
+}
+,
+
+{
+  "name": "gitrm",
+  "category": "git",
+  "desc": "Removes a file from Git tracking without deleting it from the folder.",
+  "definition": "Usage:\n  gitrm <filename>\n\nExample:\n  gitrm config.json\n\nDescription:\n  Executes 'git rm --cached <filename>' to untrack the file from the Git index but retain it locally. Useful for removing sensitive or temporary files from version control.\n\nDetails:\n  • Uses system Git directly\n  • Keeps the file in your local folder\n  • Works cross-platform (Windows/macOS/Linux)\n  • Ideal for untracking configs, logs, or large local files\n\nOutput:\n  Shows confirmation that the file was untracked successfully and remains in your project directory."
+}
+,
+
+{
+  "name": "gitpull",
+  "category": "git",
+  "desc": "Downloads a GitHub repository or a specific file directly via HTTPS, without requiring Git.",
+  "definition": "Usage:\n  gitpull <username>/<repo>\n  gitpull <username>/<repo>/<file>\n\nExamples:\n  gitpull torvalds/linux\n  gitpull torvalds/linux/README.md\n\nDescription:\n  Pulls either a full GitHub repository (as a zip archive) or an individual file from the main branch of a public repository. Works without requiring Git to be installed.\n\nDetails:\n  • Downloads entire repos or single files\n  • Saves directly into the current directory\n  • Uses GitHub's public HTTPS endpoints\n  • Fully cross-platform (Windows/macOS/Linux)\n\nOutput:\n  Displays the download URL and success/failure messages after saving."
+}
+,
+{
+  "name": "gitcommit",
+  "category": "git",
+  "desc": "Executes a real 'git commit -m \"auto commit\"' from within PyNixShell.",
+  "definition": "Usage:\n  gitcommit\n\nDescription:\n  Runs the standard Git commit command with an automatic commit message 'auto commit'. Displays Git output live inside PyNixShell.\n\nDetails:\n  • Uses system Git directly\n  • Cross-platform (Windows/macOS/Linux)\n  • Automatically commits staged changes\n  • Displays full commit result or errors if Git is missing\n\nOutput:\n  Shows the Git commit summary and a confirmation message once complete."
+}
+,
+
+{
+  "name": "gitinit",
+  "category": "git",
+  "desc": "Initializes a real Git repository using the system Git command.",
+  "definition": "Usage:\n  gitinit\n\nDescription:\n  Executes the actual 'git init' command in the current directory to initialize a new repository. Displays real Git output live inside PyNixShell.\n\nDetails:\n  • Uses system Git directly\n  • Cross-platform (Windows/macOS/Linux)\n  • Initializes a .git directory in the current folder\n  • Displays Git CLI output inline\n\nOutput:\n  Shows Git’s repository initialization message and a success confirmation."
+}
+,
+
+{
+  "name": "gitstatus",
+  "category": "git",
+  "desc": "Displays a clean, color-coded summary of Git changes for better readability.",
+  "definition": "Usage:\n  gitstatus\n\nDescription:\n  Runs 'git status --porcelain' and presents a clear, colorized summary of your working directory status. Groups files by type: added, modified, deleted, or untracked.\n\nDetails:\n  • Uses system Git directly\n  • Cross-platform (Windows/macOS/Linux)\n  • Color-coded sections for clarity\n  • Displays staged and unstaged changes\n\nOutput:\n  Clean, formatted summary of repository changes with file lists and helpful staging tips."
+}
+,
+
+{
   "name": "option",
   "category": "filesystem",
   "desc": "Displays an interactive options menu for a file or folder",
   "definition": "Opens an interactive file options menu in the terminal that mimics a desktop right-click menu. From here, you can perform actions like Open, Edit, Delete, Copy, Paste, Rename, and more.\n\nUsage:\n  option <filename or foldername>\n\nExamples:\n  option notes.txt\n  option Documents\n\nAvailable Actions:\n• Open — Opens the file or folder using the system default program.\n• Edit — Opens the file in the built-in Nano text editor.\n• Delete — Removes the selected file or folder permanently.\n• Copy / Paste — Copies and pastes files or directories within PyNixShell.\n• Rename — Renames the file or folder directly from the terminal.\n• New Folder / New File — Creates new files or folders in the same directory.\n• Open Terminal Here — Opens PyNixShell’s terminal in the target directory.\n• Properties — Displays detailed admin and sharing properties for the file (Windows only).\n• Open File Location — Opens the directory containing the file in the system’s file explorer.\n\nDetails:\n• Works on both files and folders.\n• On Windows, the Properties option opens the native file properties dialog via ShellExecuteEx.\n• On Unix-based systems, fallback actions (open, edit, etc.) are handled via `subprocess.call([\"open\", path])`.\n\nTip: Use `option` as a convenient GUI-like replacement for multiple manual commands like `open`, `nano`, `rm`, and `cp` — all in one place."
+}
+,
+
+{
+  "name": "gitstage",
+  "category": "git",
+  "desc": "Stages all files or a specific file for commit using Git.",
+  "definition": "Usage:\n  gitstage            → stages all changes (git add .)\n  gitstage <filename> → stages a specific file\n\nExamples:\n  gitstage\n  gitstage main.py\n\nDescription:\n  Executes the 'git add' command to stage changes in the current repository. If a filename is provided, only that file is staged; otherwise, all modified and new files are added.\n\nDetails:\n  • Uses system Git directly\n  • Cross-platform (Windows/macOS/Linux)\n  • Automatically stages new or changed files\n  • Displays live Git output inline in PyNixShell\n\nOutput:\n  Shows confirmation after successful staging or descriptive error if Git is missing."
 }
 ,
   
@@ -74,6 +153,15 @@
     "desc": "Refreshes PyNixShell to apply updates",
     "definition": "Reloads the current shell environment without closing the terminal."
   },
+  
+  {
+  "name": "rep",
+  "category": "file",
+  "desc": "Replaces one file with another, automatically creating missing target directories if needed.",
+  "definition": "Usage:\n  rep <source> -t <target>\n\nExample:\n  rep pyterm.py -t /Pyterm/pyterm.py\n\nDescription:\n  Copies the contents of the source file and overwrites the target file. If the target file's folder does not exist, it will be created automatically. Works across all platforms without requiring administrator privileges.\n\nDetails:\n  • Automatically creates missing target directories\n  • Preserves file metadata (timestamps, permissions)\n  • Cross-platform compatible (Windows, macOS, Linux)\n  • Overwrites existing target files safely\n  • Displays detailed errors for invalid paths or permission issues\n\nOutput:\n  Displays confirmation upon successful replacement, or descriptive error messages if the operation fails."
+}
+,
+  
   {
     "name": "shutdown",
     "category": "system",
