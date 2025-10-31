@@ -682,6 +682,161 @@ def rep_cmd(args):
     except Exception as e:
         print(f"⚠️ Replacement failed: {e}")
 
+@register_command("gitpush")
+def gitpush(args):
+    """
+    Runs 'git push -u origin main' in the system shell.
+    
+    Usage:
+      gitpush
+    
+    Description:
+      Executes a real Git push to the current repository’s remote origin main branch.
+      Works on Windows, macOS, and Linux.
+    """
+    import os
+    import subprocess
+    import platform
+
+    print("🚀 Running: git push -u origin main\n")
+
+    try:
+        if platform.system() == "Windows":
+            # Windows uses PowerShell or cmd
+            subprocess.run(["git", "push", "-u", "origin", "main"], shell=True)
+        else:
+            # macOS / Linux
+            subprocess.run("git push -u origin main", shell=True, executable="/bin/bash")
+        print("\n✅ Push complete.")
+    except FileNotFoundError:
+        print("❌ Git is not installed or not found in PATH.")
+    except Exception as e:
+        print(f"⚠️ Push failed: {e}")
+
+@register_command("gitpull")
+def gitpull_cmd(args):
+    """
+    Downloads a GitHub repository or a specific file from a public repo.
+
+    Usage:
+      gitpull <username>/<repository>
+      gitpull <username>/<repository>/<file>
+
+    Examples:
+      gitpull torvalds/linux
+      gitpull torvalds/linux/README.md
+
+    Description:
+      Pulls files or entire repos directly from GitHub without requiring Git.
+      Automatically saves files into the current directory.
+    """
+    import os
+    import urllib.request
+    import zipfile
+    import io
+
+    if not args:
+        print("Usage: gitpull <username>/<repo> or gitpull <username>/<repo>/<file>")
+        return
+
+    target = args[0].strip("/")
+    parts = target.split("/")
+
+    if len(parts) < 2:
+        print("❌ Invalid format. Use: gitpull <username>/<repo> or gitpull <username>/<repo>/<file>")
+        return
+
+    username, repo = parts[0], parts[1]
+    file_path = "/".join(parts[2:]) if len(parts) > 2 else None
+
+    if file_path:
+        # --- Pull specific file ---
+        url = f"https://raw.githubusercontent.com/{username}/{repo}/main/{file_path}"
+        save_path = os.path.join(os.getcwd(), os.path.basename(file_path))
+        print(f"⬇️ Downloading file: {url}")
+        try:
+            urllib.request.urlretrieve(url, save_path)
+            print(f"✅ Saved file: {save_path}")
+        except Exception as e:
+            print(f"⚠️ Failed to download file: {e}")
+    else:
+        # --- Pull entire repository ---
+        url = f"https://github.com/{username}/{repo}/archive/refs/heads/main.zip"
+        print(f"⬇️ Downloading repository: {url}")
+        try:
+            with urllib.request.urlopen(url) as response:
+                data = response.read()
+            with zipfile.ZipFile(io.BytesIO(data)) as zip_ref:
+                zip_ref.extractall(os.getcwd())
+            print(f"✅ Repository '{repo}' extracted successfully into current directory.")
+        except Exception as e:
+            print(f"⚠️ Failed to download repository: {e}")
+
+@register_command("gitcommit")
+def gitcommit(args):
+    """
+    Runs 'git commit -m "auto commit"' in the system shell.
+
+    Usage:
+      gitcommit
+
+    Description:
+      Automatically commits all staged changes with the message 'auto commit'.
+      Displays the full Git output in PyNixShell.
+    """
+    import subprocess
+    import platform
+
+    print("💾 Running: git commit -m \"auto commit\"\n")
+
+    try:
+        # Cross-platform execution
+        if platform.system() == "Windows":
+            subprocess.run(["git", "commit", "-m", "auto commit"], shell=True)
+        else:
+            subprocess.run("git commit -m 'auto commit'", shell=True, executable="/bin/bash")
+
+        print("\n✅ Commit complete.")
+    except FileNotFoundError:
+        print("❌ Git is not installed or not found in PATH.")
+    except Exception as e:
+        print(f"⚠️ Commit failed: {e}")
+
+@register_command("gitstage")
+def gitstage(args):
+    """
+    Stages all changes or a specific file using Git.
+
+    Usage:
+      gitstage            → stages all changes (git add .)
+      gitstage <filename> → stages a specific file
+
+    Example:
+      gitstage
+      gitstage main.py
+    """
+    import subprocess
+    import platform
+
+    if args:
+        target = args[0]
+        cmd = ["git", "add", target]
+        print(f"📁 Running: git add {target}\n")
+    else:
+        cmd = ["git", "add", "."]
+        print("📦 Running: git add . (stage all changes)\n")
+
+    try:
+        if platform.system() == "Windows":
+            subprocess.run(cmd, shell=True)
+        else:
+            subprocess.run(" ".join(cmd), shell=True, executable="/bin/bash")
+
+        print("✅ Files staged successfully.")
+    except FileNotFoundError:
+        print("❌ Git is not installed or not found in PATH.")
+    except Exception as e:
+        print(f"⚠️ Stage failed: {e}")
 
         
 @register_command("rfpt")
@@ -731,6 +886,154 @@ def move_item(args):
         print(f"Moved: {src} → {dst}")
     except Exception as e:
         print(f"Error moving item: {e}")    
+        
+@register_command("gitrm")
+def gitrm(args):
+    """
+    Removes a file from the Git repository index but keeps it locally.
+
+    Usage:
+      gitrm <filename>
+
+    Example:
+      gitrm secrets.txt
+
+    Description:
+      Untracks a file from Git while keeping it in your folder.
+      Equivalent to: git rm --cached <file>
+    """
+    import subprocess
+    import platform
+
+    if not args:
+        print("Usage: gitrm <filename>")
+        return
+
+    filename = args[0]
+    print(f"🗑️ Untracking file: {filename}\n")
+
+    try:
+        if platform.system() == "Windows":
+            subprocess.run(["git", "rm", "--cached", filename], shell=True)
+        else:
+            subprocess.run(f"git rm --cached '{filename}'", shell=True, executable="/bin/bash")
+
+        print(f"✅ '{filename}' removed from repository index (kept locally).")
+    except FileNotFoundError:
+        print("❌ Git is not installed or not found in PATH.")
+    except Exception as e:
+        print(f"⚠️ Removal failed: {e}")
+        
+        
+@register_command("gitinit")
+def gitinit(args):
+    """
+    Initializes a real Git repository using system Git.
+
+    Usage:
+      gitinit
+
+    Description:
+      Runs 'git init' in the current working directory to create a new Git repository.
+      Displays Git’s real output inline in PyNixShell.
+    """
+    import subprocess
+    import platform
+
+    print("🧩 Running: git init\n")
+
+    try:
+        if platform.system() == "Windows":
+            subprocess.run(["git", "init"], shell=True)
+        else:
+            subprocess.run("git init", shell=True, executable="/bin/bash")
+
+        print("\n✅ Repository initialized successfully.")
+    except FileNotFoundError:
+        print("❌ Git is not installed or not found in PATH.")
+    except Exception as e:
+        print(f"⚠️ Initialization failed: {e}")
+        
+@register_command("gitstatus")
+def gitstatus(args):
+    """
+    Displays a clean, color-coded summary of your current Git repository status.
+
+    Usage:
+      gitstatus
+
+    Description:
+      Runs 'git status --porcelain' and formats the output for readability.
+      Shows clear sections for modified, new, deleted, and untracked files.
+    """
+    import subprocess
+    import platform
+
+    # Simple color helper (ANSI codes)
+    def color(text, code): return f"\033[{code}m{text}\033[0m"
+
+    print("📋 Checking repository status...\n")
+
+    try:
+        # Run git status in porcelain mode
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            shell=(platform.system() == "Windows")
+        )
+
+        output = result.stdout.strip()
+        if not output:
+            print(color("✅ Working directory clean — nothing to commit.", "32"))
+            return
+
+        modified, added, deleted, untracked = [], [], [], []
+
+        for line in output.splitlines():
+            status = line[:2].strip()
+            filename = line[3:].strip() if len(line) > 3 else line.strip()
+
+            if status in ("M", "MM", "AM", "MA"):
+                modified.append(filename)
+            elif status in ("A", "??A"):
+                added.append(filename)
+            elif status in ("D", "AD", "MD"):
+                deleted.append(filename)
+            elif status == "??":
+                untracked.append(filename)
+
+        # Display sections neatly
+        if added:
+            print(color("🟩 Added files:", "32"))
+            for f in added:
+                print(f"  + {f}")
+            print()
+
+        if modified:
+            print(color("🟨 Modified files:", "33"))
+            for f in modified:
+                print(f"  * {f}")
+            print()
+
+        if deleted:
+            print(color("🟥 Deleted files:", "31"))
+            for f in deleted:
+                print(f"  - {f}")
+            print()
+
+        if untracked:
+            print(color("⚪ Untracked files:", "37"))
+            for f in untracked:
+                print(f"  ? {f}")
+            print()
+
+        print(color("💡 Tip:", "36"), "Use 'gitstage' or 'gitadd' to stage files.")
+    except FileNotFoundError:
+        print("❌ Git is not installed or not found in PATH.")
+    except Exception as e:
+        print(f"⚠️ Error running gitstatus: {e}")
+        
         
 @register_command("cat")
 def cat(args):
@@ -3329,6 +3632,147 @@ def find_cmd(args):
         print("❌ No matches found.")
     print(f"\n🔎 Scanned approximately {scanned:,} files total.\n")
 
+@register_command("wintask")
+def wintask_cmd(args):
+    """
+    Controls the Windows Taskbar (Explorer process).
+    Usage:
+      wintask end   → disables Taskbar (kills explorer.exe)
+      wintask start → restarts Taskbar (relaunches explorer.exe)
+    """
+    import subprocess
+    import os
+    import platform
+
+    if platform.system() != "Windows":
+        print("⚠️  'wintask' is only available on Windows.")
+        return
+
+    if not args:
+        print("Usage: wintask [end/start]")
+        return
+
+    action = args[0].lower()
+
+    if action == "end":
+        try:
+            subprocess.call(["taskkill", "/f", "/im", "explorer.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print("🛑 Windows Taskbar (explorer.exe) has been disabled.")
+        except Exception as e:
+            print(f"❌ Failed to disable Taskbar: {e}")
+
+    elif action == "start":
+        try:
+            subprocess.Popen(["explorer.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print("🚀 Windows Taskbar (explorer.exe) restarted successfully.")
+        except Exception as e:
+            print(f"❌ Failed to start Taskbar: {e}")
+
+    else:
+        print("Usage: wintask [end/start]")
+
+@register_command("startup")
+def startup_cmd(args):
+    """
+    Lists all OS-related or bootable partitions and labels them by type (Windows, Linux, EFI, etc.)
+    Usage:
+      startup -d   → scan and show all bootable partitions
+    """
+    import platform
+    import subprocess
+    import re
+
+    if not args or args[0] != "-d":
+        print("Usage: startup -d")
+        return
+
+    system = platform.system()
+    print("🔍 Scanning system partitions...\n")
+
+    # Known GPT type identifiers (GUIDs)
+    GPT_TYPES = {
+        "{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}".lower(): "🧩 EFI System Partition",
+        "{0fc63daf-8483-4772-8e79-3d69d8477de4}".lower(): "🐧 Linux Partition",
+        "{0657fd6d-a4ab-43c4-84e5-0933c84b4f4f}".lower(): "💾 Linux Swap",
+        "{de94bba4-06d1-4d40-a16a-bfd50179d6ac}".lower(): "🛟 Windows Recovery Partition",
+        "{e3c9e316-0b5c-4db8-817d-f92df00215ae}".lower(): "⚙️ Microsoft Reserved Partition",
+        "{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}".lower(): "💻 Windows Partition",
+    }
+
+    try:
+        if system == "Windows":
+            ps_script = (
+                "Get-Partition | "
+                "Select DiskNumber, PartitionNumber, DriveLetter, Type, GptType | "
+                "Format-Table -AutoSize"
+            )
+            result = subprocess.run(["powershell", "-Command", ps_script], capture_output=True, text=True)
+            output = result.stdout.strip()
+            print(output)
+            print("\n💾 Detected partitions with OS type classification:\n")
+
+            for line in output.splitlines():
+                # Extract GUID from each line (if any)
+                match = re.search(r"\{[0-9a-fA-F\-]+\}", line)
+                if match:
+                    guid = match.group(0).lower()
+                    label = GPT_TYPES.get(guid, "❓ Unknown / Non-OS Partition")
+                    print(f"  • {label}  →  {line.strip()}")
+
+        elif system == "Linux":
+            print("🧠 Linux system detected — showing OS and boot partitions:\n")
+            subprocess.run(["lsblk", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,LABEL"], check=False)
+
+        elif system == "Darwin":
+            print("🍎 macOS system detected — showing bootable volumes:\n")
+            subprocess.run(["diskutil", "list"], check=False)
+
+        else:
+            print(f"Unsupported OS: {system}")
+
+    except Exception as e:
+        print(f"❌ Error while detecting partitions: {e}")
+
+@register_command("admin")
+def admin_cmd(args):
+    """
+    Relaunches PyNixShell with Administrator privileges (UAC elevation on Windows).
+    Usage:
+      admin          → reopen PyNixShell as Administrator
+      admin -check   → check if running in Administrator mode
+    """
+    import os, sys, ctypes, platform, subprocess
+
+    if platform.system() != "Windows":
+        print("⚠️  The 'admin' command is Windows-only.")
+        return
+
+    # --- Check if already admin ---
+    try:
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        is_admin = False
+
+    if args and args[0] == "-check":
+        if is_admin:
+            print("✅ PyNixShell is currently running with Administrator privileges.")
+        else:
+            print("❌ PyNixShell is not elevated (standard user mode).")
+        return
+
+    # --- Relaunch if not admin ---
+    if not is_admin:
+        exe = sys.executable
+        script = os.path.abspath(__file__)
+        try:
+            print("🔒 Requesting Administrator elevation...")
+            # Relaunch this same script elevated
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, f'"{script}"', None, 1)
+            print("🚀 Relaunching PyNixShell as Administrator...")
+        except Exception as e:
+            print(f"❌ Failed to elevate privileges: {e}")
+    else:
+        print("✅ Already running as Administrator.")
 
 # =======================================
 # Command Execution
