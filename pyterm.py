@@ -26,6 +26,13 @@ import importlib.util
 import hashlib
 import inspect
 
+# at module top
+dock_window = None
+dock_thread = None
+
+bg_window = None
+bg_thread = None
+
 _aliases = {}
 
 # Save alias file in the same directory as this script
@@ -838,6 +845,7 @@ def gitstage(args):
     except Exception as e:
         print(f"⚠️ Stage failed: {e}")
 
+
         
 @register_command("rfpt")
 def refresh_pyterm(args):
@@ -851,41 +859,11 @@ def refresh_pyterm(args):
         print("PyTerm refreshed successfully.")
         handle_command("clear")
     except Exception as e:
-        print(f"Error refreshing PyTerm: {e}")       
-        
-@register_command("pwd")
-def pwd(args):
-    """Print the current working directory."""
-    print(os.getcwd())
-    
-@register_command("move")
-def move_item(args):
-    """Move a file or folder to a new location."""
-    if len(args) < 2:
-        print("Usage: move <source> <destination>")
-        return
+        print(f"Error refreshing PyTerm: {e}")   
 
-    src = args[0]
-    dst = args[1]
 
-    src_path = os.path.join(os.getcwd(), src)
-    dst_path = os.path.join(os.getcwd(), dst)
-
-    if not os.path.exists(src_path):
-        print(f"Source not found: {src}")
-        return
-
-    try:
-        # If destination is a folder, move inside it
-        if os.path.isdir(dst_path):
-            final_dst = os.path.join(dst_path, os.path.basename(src_path))
-        else:
-            final_dst = dst_path
-
-        shutil.move(src_path, final_dst)
-        print(f"Moved: {src} → {dst}")
-    except Exception as e:
-        print(f"Error moving item: {e}")    
+   
+   
         
 @register_command("gitrm")
 def gitrm(args):
@@ -3527,6 +3505,148 @@ def pptx_extract_cmd(args):
         print()  # blank line between slides
 
     print("✅ Done extracting text.\n")
+    
+@register_command("setbac")
+def setback_cmd(args):
+    """
+    Set a background image.
+
+    Usage:
+      setback <image>          → shows a full-screen background window (non-topmost)
+      setback -win <image>     → sets Windows system wallpaper
+      setback -kill            → closes the full-screen background window
+
+    Tips:
+      • Use plain 'setback <image>' for your custom desktop / wintask -end mode.
+      • Use 'setback -win <image>' to set the OS wallpaper.
+    """
+    import os, threading
+
+    if not args or args[0] in ("-h", "--help"):
+        print(setback_cmd.__doc__)
+        return
+
+    # --- Kill the windowed background if running ---
+    if args[0] == "-kill":
+        _close_bg_window()
+        print("🧹 Background window closed.")
+        return
+
+    # --- Windows wallpaper mode ---
+    if args[0] == "-win":
+        if len(args) < 2:
+            print("Usage: setback -win <image>")
+            return
+        path = _normalize_image_path(args[1])
+        if not os.path.exists(path):
+            print(f"❌ Image not found: {path}")
+            return
+        _set_windows_wallpaper(path)
+        return
+
+    # --- Windowed background mode (cross-platform, ideal for wintask -end) ---
+    path = _normalize_image_path(args[0])
+    if not os.path.exists(path):
+        print(f"❌ Image not found: {path}")
+        return
+
+    # Spawn a daemon thread so PyTerm stays interactive
+    global bg_thread
+    _close_bg_window()  # close any prior background window first
+    bg_thread = threading.Thread(target=_launch_bg_window, args=(path,), daemon=True)
+    bg_thread.start()
+    print(f"🖼️ Background window launched with: {path}")
+
+
+def _normalize_image_path(p):
+    import os
+    return os.path.abspath(os.path.expanduser(p))
+
+
+def _set_windows_wallpaper(path):
+    """Set OS wallpaper on Windows."""
+    import platform
+    if platform.system() != "Windows":
+        print("⚠️ '-win' mode is only available on Windows.")
+        return
+    import ctypes
+    SPI_SETDESKWALLPAPER = 20
+    SPIF_UPDATEINIFILE = 0x01
+    SPIF_SENDWININICHANGE = 0x02
+    ok = ctypes.windll.user32.SystemParametersInfoW(
+        SPI_SETDESKWALLPAPER, 0, path, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE
+    )
+    if ok:
+        print("✅ Windows wallpaper updated.")
+    else:
+        print("⚠️ Failed to set wallpaper (check image path/format).")
+
+
+def _launch_bg_window(image_path):
+    """Create a borderless, full-screen background window, placed behind other app windows."""
+    import tkinter as tk
+    from PIL import Image, ImageTk  # Pillow required
+
+    global bg_window
+    try:
+        root = tk.Tk()
+        root.title("PyNix Background")
+        root.overrideredirect(True)
+        root.attributes("-topmost", False)   # not on top; we want it *behind* your apps
+        # Fill the primary display
+        sw = root.winfo_screenwidth()
+        sh = root.winfo_screenheight()
+        root.geometry(f"{sw}x{sh}+0+0")
+        root.configure(bg="black")
+
+        # Canvas to draw the image, centered and scaled to fit
+        canvas = tk.Canvas(root, width=sw, height=sh, highlightthickness=0, bd=0, bg="black")
+        canvas.pack(fill="both", expand=True)
+
+        # Load/fit image
+        img = Image.open(image_path).convert("RGB")
+        iw, ih = img.size
+        scale = min(sw / iw, sh / ih)
+        nw, nh = max(1, int(iw * scale)), max(1, int(ih * scale))
+        img = img.resize((nw, nh), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(img)
+        # Center
+        x = (sw - nw) // 2
+        y = (sh - nh) // 2
+        canvas.create_image(x, y, anchor="nw", image=photo)
+        canvas.image = photo  # keep reference
+
+        # Push window behind others if possible (best effort on Windows)
+        try:
+            import platform
+            if platform.system() == "Windows":
+                # Use win32 APIs to place window at bottom of Z-order
+                import win32gui, win32con
+                hwnd = win32gui.FindWindow(None, "PyNix Background")
+                if hwnd:
+                    win32gui.SetWindowPos(hwnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
+                                          win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE)
+        except Exception:
+            pass
+
+        bg_window = root
+        root.mainloop()
+    except Exception as e:
+        print(f"⚠️ Background window error: {e}")
+        bg_window = None
+
+
+def _close_bg_window():
+    """Close the background window if it exists."""
+    global bg_window
+    try:
+        if bg_window and bg_window.winfo_exists():
+            bg_window.quit()
+            bg_window.destroy()
+    except Exception:
+        pass
+    finally:
+        bg_window = None    
 
 @register_command("find")
 def find_cmd(args):
@@ -3641,7 +3761,6 @@ def wintask_cmd(args):
       wintask start → restarts Taskbar (relaunches explorer.exe)
     """
     import subprocess
-    import os
     import platform
 
     if platform.system() != "Windows":
@@ -3656,20 +3775,28 @@ def wintask_cmd(args):
 
     if action == "end":
         try:
-            subprocess.call(["taskkill", "/f", "/im", "explorer.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.call(
+                ["taskkill", "/f", "/im", "explorer.exe"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
             print("🛑 Windows Taskbar (explorer.exe) has been disabled.")
         except Exception as e:
             print(f"❌ Failed to disable Taskbar: {e}")
 
     elif action == "start":
         try:
-            subprocess.Popen(["explorer.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(
+                ["explorer.exe"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
             print("🚀 Windows Taskbar (explorer.exe) restarted successfully.")
         except Exception as e:
             print(f"❌ Failed to start Taskbar: {e}")
 
     else:
         print("Usage: wintask [end/start]")
+
+
 
 @register_command("startup")
 def startup_cmd(args):
@@ -3732,6 +3859,42 @@ def startup_cmd(args):
 
     except Exception as e:
         print(f"❌ Error while detecting partitions: {e}")
+        
+@register_command("-s")
+def search_by_extension(args):
+    """
+    Usage:
+      -s .ext        → Lists all files in the current directory with the given extension
+      -s .ext path   → (optional) specify a directory
+
+    Example:
+      -s .png
+      -s .txt /users/owena/projects
+    """
+    import os
+
+    if not args:
+        print("Usage: -s .extension [optional_path]")
+        return
+
+    ext = args[0].lower()
+    path = args[1] if len(args) > 1 else os.getcwd()
+
+    if not os.path.exists(path):
+        print(f"❌ Path not found: {path}")
+        return
+
+    try:
+        files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) and f.lower().endswith(ext)]
+        if files:
+            print(f"📂 Found {len(files)} *{ext} files in {path}:\n")
+            for f in files:
+                print(f"  • {f}")
+        else:
+            print(f"⚠️ No {ext} files found in {path}.")
+    except Exception as e:
+        print(f"❌ Error reading directory: {e}")
+        
 
 @register_command("admin")
 def admin_cmd(args):
@@ -3773,6 +3936,8 @@ def admin_cmd(args):
             print(f"❌ Failed to elevate privileges: {e}")
     else:
         print("✅ Already running as Administrator.")
+
+
 
 # =======================================
 # Command Execution

@@ -1,0 +1,69 @@
+# ==========================
+# PyNixShell Command Reference
+# ==========================
+# Format: command_name  description
+# (Use two spaces between name and description)
+# ==========================
+
+# --- Basic Commands ---
+hello  Prints "Hello, world!"
+ls  Lists files in the current directory
+cd  Changes the current working directory
+back  Goes back one directory
+touch  Creates a new file
+mkdir  Creates a new folder
+rm  Removes files or folders
+cat  Displays the contents of a file
+pwd  Prints the current directory
+tree  Displays the directory structure in tree format
+du  Shows disk usage for files and folders
+df  Displays total and available disk space
+head  Displays the first few lines of a file
+grep  Searches text inside files for a keyword
+
+# --- Git Shortcuts ---
+easycommit  Commits staged changes with a message
+easypush  Pushes changes to origin/main
+easyupload  Adds, commits, and pushes all changes automatically
+forcepush  Pushes local branch forcibly (overwrites remote)
+findgit  Finds all Git repositories on the system
+
+# --- System & Power ---
+shutdown  Safely shuts down the system (with confirmation popup)
+restart  Restarts the computer (with confirmation popup)
+sleep  Puts the system into sleep mode
+rfpt  Refreshes PyNixShell to apply updates
+
+# --- Terminal & Info ---
+help  Displays this help file with command descriptions
+pytermexplain  Explains what PyNixShell is and how it works
+neofetch  Displays PyNixShell logo and system information
+explain  Detailed explanation of PyTerm’s philosophy
+echo  Prints text to the terminal
+history  Shows previously run commands
+watch  Repeats a command on an interval (e.g. watch -n 2 "ls")
+
+# --- File Transfer / LAN ---
+lanhost  Hosts a LAN chat and file-sharing session
+lanjoin  Joins a LAN host session
+lanstatus  Displays connected clients in LAN host mode
+lanstop  Stops the LAN host and disconnects clients
+push  Uploads a file to the host in LAN mode
+pushdir  Uploads a folder (as .zip) to the host
+pull  Downloads a file from the host
+pulldir  Downloads and extracts a folder from the host
+listfiles  Lists files shared by the host
+rmv  Removes a shared file or folder on the host
+
+# --- Git-like Utility ---
+gitpush  Pushes to origin/main
+easycommit  Creates a commit using staged files
+gitpull  Pulls the latest changes from remote
+undopush  Undoes the last Git push (asks for confirmation)
+findgit  Locates all Git repositories within your project directory
+
+# --- Misc ---
+intnixcode  Requests Intnix authorization code
+quicknote  Creates a draggable sticky note on screen
+quicknotemgr  Manages and launches saved notes
+loading  Starts the built-in endless runner mini-game

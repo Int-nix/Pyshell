@@ -1,0 +1,464 @@
+[
+  {
+    "name": "ls",
+    "category": "basic",
+    "desc": "Lists files in the current directory",
+    "definition": "Lists all files and folders in the current directory. Equivalent to `dir` on Windows or `ls` on Unix."
+  },
+  {
+    "name": "cd",
+    "category": "basic",
+    "desc": "Changes the current working directory",
+    "definition": "Use `cd <folder>` to navigate to a folder or `cd ..` to move up one directory."
+  },
+  
+  {
+  "name": "history",
+  "category": "system",
+  "desc": "Shows or manages your command history",
+  "definition": "Displays a list of previously executed commands, similar to Bash's `history`. Supports filtering, clearing, and command re-execution.\n\nUsage:\n  history                → shows all previously used commands\n  history -n <number>    → shows only the last N commands\n  history -c             → clears all stored command history\n  !<number>              → re-runs the command at that history number\n\nExamples:\n  history                → lists all commands with numbering\n  history -n 5           → displays the 5 most recent commands\n  history -c             → clears all command history\n  !3                     → re-executes the 3rd command in the history list\n\nDetails:\n• Commands are automatically recorded whenever executed, including both manual and auto-run commands.\n• The `!<number>` syntax allows you to quickly repeat any past command by its listed index.\n• History persists only for the current session.\n\nTip: Combine `history -n` with `!<number>` to quickly re-run recent commands (e.g., `history -n 5` then `!5`)."
+}
+,
+
+{
+  "name": "ip",
+  "category": "network",
+  "desc": "Displays local or public IP information",
+  "definition": "Shows network interface details, including local IPv4 addresses and the system's public IP. Works similarly to `ipconfig` on Windows or `ifconfig` on Unix.\n\nUsage:\n  ip                  → displays hostname, local IPv4, and public IP\n  ip -s               → lists all active network interfaces and their IPv4 addresses\n\nExamples:\n  ip                  → shows your device hostname, local network IP, and external IP address\n  ip -s               → lists all connected adapters (Ethernet, Wi-Fi, etc.) and their IPv4 addresses\n\nDetails:\n• The `-s` flag enumerates all active network interfaces using the system’s socket and psutil libraries.\n• The default mode (`ip`) attempts to retrieve your public IP using online APIs like api.ipify.org and icanhazip.com.\n• Works on Windows, macOS, and Linux.\n• Automatically falls back gracefully if no internet connection is available.\n\nTip: Use `ip -s` before running LAN tools like `opendrop` to confirm which interface and address your system is using."
+}
+,
+
+{
+  "name": "goback",
+  "category": "basic",
+  "desc": "Returns to the previously visited directory",
+  "definition": "Quickly switches back to the last directory you were in, similar to the Unix `cd -` command.\n\nUsage:\n  goback               → returns to the previous working directory\n\nExamples:\n  cd C:\\Users\\Owen\\Desktop\n  cd C:\\Users\\Owen\\Projects\n  goback               → moves back to C:\\Users\\Owen\\Desktop\n\nDetails:\n• PyNixShell automatically records the last directory each time you use `cd`.\n• Running `goback` swaps your current directory with the previously visited one, allowing you to toggle back and forth.\n• Works across all supported platforms (Windows, macOS, Linux).\n\nTip: Use `goback` when navigating between two folders frequently — it acts like a quick directory toggle button."
+}
+,
+
+{
+  "name": "admin",
+  "category": "system",
+  "desc": "Relaunches PyNixShell with full Administrator privileges on Windows.",
+  "definition": "Usage:\n  admin          → relaunches PyNixShell as Administrator\n  admin -check   → checks if the current session has Administrator rights\n\nThis command triggers a UAC elevation prompt and restarts the PyNixShell kernel with elevated permissions. Essential for commands requiring system-level access (like 'startup -d' or 'wintask end')."
+}
+,
+
+{
+  "name": "wintask",
+  "category": "system",
+  "desc": "Controls the Windows Taskbar (explorer.exe) process.",
+  "definition": "Usage:\n  wintask end     → disables the Windows Taskbar (kills explorer.exe)\n  wintask start   → restarts the Windows Taskbar (relaunches explorer.exe)\n\nThis command allows you to manually control the Windows Taskbar process. 'end' will terminate explorer.exe, effectively disabling the Taskbar and desktop shell. 'start' will relaunch explorer.exe to restore normal functionality.\n\nExample:\n  wintask end\n  wintask start"
+}
+,
+
+{
+  "name": "startup",
+  "category": "system",
+  "desc": "Scans and classifies all partitions as Windows, Linux, EFI, Recovery, or Reserved.",
+  "definition": "Usage:\n  startup -d   → shows all OS or bootable partitions.\n\nAutomatically labels partitions using known GPT identifiers:\n  💻 Windows Partition\n  🐧 Linux Partition\n  🧩 EFI System Partition\n  🛟 Windows Recovery\n  ⚙️ Microsoft Reserved\n  💾 Linux Swap\n\nExample:\n  startup -d"
+}
+,
+
+{
+  "name": "gitpush",
+  "category": "git",
+  "desc": "Executes a real 'git push -u origin main' command directly from PyNixShell.",
+  "definition": "Usage:\n  gitpush\n\nDescription:\n  Runs the standard Git push command to upload commits to the 'origin' remote on the 'main' branch. Displays the live Git output inside PyNixShell. Works cross-platform.\n\nDetails:\n  • Executes real system-level Git\n  • Compatible with Windows, macOS, and Linux\n  • Shows full Git push output inline\n  • Detects if Git is not installed and provides a clear warning\n\nOutput:\n  Displays all Git push output, followed by success or error message."
+}
+,
+
+{
+  "name": "gitrm",
+  "category": "git",
+  "desc": "Removes a file from Git tracking without deleting it from the folder.",
+  "definition": "Usage:\n  gitrm <filename>\n\nExample:\n  gitrm config.json\n\nDescription:\n  Executes 'git rm --cached <filename>' to untrack the file from the Git index but retain it locally. Useful for removing sensitive or temporary files from version control.\n\nDetails:\n  • Uses system Git directly\n  • Keeps the file in your local folder\n  • Works cross-platform (Windows/macOS/Linux)\n  • Ideal for untracking configs, logs, or large local files\n\nOutput:\n  Shows confirmation that the file was untracked successfully and remains in your project directory."
+}
+,
+
+{
+  "name": "gitpull",
+  "category": "git",
+  "desc": "Downloads a GitHub repository or a specific file directly via HTTPS, without requiring Git.",
+  "definition": "Usage:\n  gitpull <username>/<repo>\n  gitpull <username>/<repo>/<file>\n\nExamples:\n  gitpull torvalds/linux\n  gitpull torvalds/linux/README.md\n\nDescription:\n  Pulls either a full GitHub repository (as a zip archive) or an individual file from the main branch of a public repository. Works without requiring Git to be installed.\n\nDetails:\n  • Downloads entire repos or single files\n  • Saves directly into the current directory\n  • Uses GitHub's public HTTPS endpoints\n  • Fully cross-platform (Windows/macOS/Linux)\n\nOutput:\n  Displays the download URL and success/failure messages after saving."
+}
+,
+{
+  "name": "gitcommit",
+  "category": "git",
+  "desc": "Executes a real 'git commit -m \"auto commit\"' from within PyNixShell.",
+  "definition": "Usage:\n  gitcommit\n\nDescription:\n  Runs the standard Git commit command with an automatic commit message 'auto commit'. Displays Git output live inside PyNixShell.\n\nDetails:\n  • Uses system Git directly\n  • Cross-platform (Windows/macOS/Linux)\n  • Automatically commits staged changes\n  • Displays full commit result or errors if Git is missing\n\nOutput:\n  Shows the Git commit summary and a confirmation message once complete."
+}
+,
+
+{
+  "name": "gitinit",
+  "category": "git",
+  "desc": "Initializes a real Git repository using the system Git command.",
+  "definition": "Usage:\n  gitinit\n\nDescription:\n  Executes the actual 'git init' command in the current directory to initialize a new repository. Displays real Git output live inside PyNixShell.\n\nDetails:\n  • Uses system Git directly\n  • Cross-platform (Windows/macOS/Linux)\n  • Initializes a .git directory in the current folder\n  • Displays Git CLI output inline\n\nOutput:\n  Shows Git’s repository initialization message and a success confirmation."
+}
+,
+
+{
+  "name": "gitstatus",
+  "category": "git",
+  "desc": "Displays a clean, color-coded summary of Git changes for better readability.",
+  "definition": "Usage:\n  gitstatus\n\nDescription:\n  Runs 'git status --porcelain' and presents a clear, colorized summary of your working directory status. Groups files by type: added, modified, deleted, or untracked.\n\nDetails:\n  • Uses system Git directly\n  • Cross-platform (Windows/macOS/Linux)\n  • Color-coded sections for clarity\n  • Displays staged and unstaged changes\n\nOutput:\n  Clean, formatted summary of repository changes with file lists and helpful staging tips."
+}
+,
+
+{
+  "name": "option",
+  "category": "filesystem",
+  "desc": "Displays an interactive options menu for a file or folder",
+  "definition": "Opens an interactive file options menu in the terminal that mimics a desktop right-click menu. From here, you can perform actions like Open, Edit, Delete, Copy, Paste, Rename, and more.\n\nUsage:\n  option <filename or foldername>\n\nExamples:\n  option notes.txt\n  option Documents\n\nAvailable Actions:\n• Open — Opens the file or folder using the system default program.\n• Edit — Opens the file in the built-in Nano text editor.\n• Delete — Removes the selected file or folder permanently.\n• Copy / Paste — Copies and pastes files or directories within PyNixShell.\n• Rename — Renames the file or folder directly from the terminal.\n• New Folder / New File — Creates new files or folders in the same directory.\n• Open Terminal Here — Opens PyNixShell’s terminal in the target directory.\n• Properties — Displays detailed admin and sharing properties for the file (Windows only).\n• Open File Location — Opens the directory containing the file in the system’s file explorer.\n\nDetails:\n• Works on both files and folders.\n• On Windows, the Properties option opens the native file properties dialog via ShellExecuteEx.\n• On Unix-based systems, fallback actions (open, edit, etc.) are handled via `subprocess.call([\"open\", path])`.\n\nTip: Use `option` as a convenient GUI-like replacement for multiple manual commands like `open`, `nano`, `rm`, and `cp` — all in one place."
+}
+,
+
+{
+  "name": "gitstage",
+  "category": "git",
+  "desc": "Stages all files or a specific file for commit using Git.",
+  "definition": "Usage:\n  gitstage            → stages all changes (git add .)\n  gitstage <filename> → stages a specific file\n\nExamples:\n  gitstage\n  gitstage main.py\n\nDescription:\n  Executes the 'git add' command to stage changes in the current repository. If a filename is provided, only that file is staged; otherwise, all modified and new files are added.\n\nDetails:\n  • Uses system Git directly\n  • Cross-platform (Windows/macOS/Linux)\n  • Automatically stages new or changed files\n  • Displays live Git output inline in PyNixShell\n\nOutput:\n  Shows confirmation after successful staging or descriptive error if Git is missing."
+}
+,
+  
+  {
+    "name": "pwd",
+    "category": "basic",
+    "desc": "Prints the current directory",
+    "definition": "Displays the absolute path of your current working directory."
+  },
+  {
+    "name": "touch",
+    "category": "basic",
+    "desc": "Creates a new file",
+    "definition": "Usage: `touch filename.txt` — creates a blank file in the current directory."
+  },
+  {
+    "name": "mkdir",
+    "category": "basic",
+    "desc": "Creates a new folder",
+    "definition": "Usage: `mkdir foldername` — creates a directory at the current path."
+  },
+  {
+    "name": "rm",
+    "category": "basic",
+    "desc": "Removes files or folders",
+    "definition": "Deletes a file or folder permanently. Use carefully — there is no undo."
+  },
+  {
+    "name": "rfpt",
+    "category": "system",
+    "desc": "Refreshes PyNixShell to apply updates",
+    "definition": "Reloads the current shell environment without closing the terminal."
+  },
+  
+  {
+  "name": "rep",
+  "category": "file",
+  "desc": "Replaces one file with another, automatically creating missing target directories if needed.",
+  "definition": "Usage:\n  rep <source> -t <target>\n\nExample:\n  rep pyterm.py -t /Pyterm/pyterm.py\n\nDescription:\n  Copies the contents of the source file and overwrites the target file. If the target file's folder does not exist, it will be created automatically. Works across all platforms without requiring administrator privileges.\n\nDetails:\n  • Automatically creates missing target directories\n  • Preserves file metadata (timestamps, permissions)\n  • Cross-platform compatible (Windows, macOS, Linux)\n  • Overwrites existing target files safely\n  • Displays detailed errors for invalid paths or permission issues\n\nOutput:\n  Displays confirmation upon successful replacement, or descriptive error messages if the operation fails."
+}
+,
+  
+  {
+    "name": "shutdown",
+    "category": "system",
+    "desc": "Safely shuts down the system",
+    "definition": "Displays a confirmation dialog before shutting down your system."
+  },
+  {
+    "name": "restart",
+    "category": "system",
+    "desc": "Restarts the computer",
+    "definition": "Displays a confirmation dialog and then reboots the system."
+  },
+  {
+    "name": "neofetch",
+    "category": "info",
+    "desc": "Displays PyNixShell logo and system info",
+    "definition": "Shows ASCII art of the PyNix logo and basic system details like OS, CPU, RAM."
+  },
+  {
+    "name": "help",
+    "category": "info",
+    "desc": "Displays available commands and their descriptions",
+    "definition": "Lists all commands or provides detailed help for a specific one using `help <command>`."
+  },
+  {
+    "name": "commands",
+    "category": "info",
+    "desc": "Lists or searches all available commands",
+    "definition": "Usage: `commands` to list all, or `commands search <keyword>` to filter by topic."
+  },
+  
+  {
+  "name": "ps",
+  "category": "system",
+  "desc": "Lists running system processes",
+  "definition": "Displays a live snapshot of all active processes on your computer, including PID, name, CPU usage, memory usage, and command line.\n\nUsage:\n  ps              → shows all processes\n  ps -p           → shows only Python-related processes\n  ps -s <name>    → searches for any process by partial or full name (case-insensitive)\n\nExamples:\n  ps -p           → filters to only show python.exe or pythonw.exe\n  ps -s chrome    → shows all Chrome-related processes\n  ps -s vscode    → shows all processes matching 'vscode'"
+},
+
+{
+  "name": "du",
+  "category": "basic",
+  "desc": "Shows disk usage for files and folders",
+  "definition": "Calculates and displays the total disk space used by files and directories, similar to the Unix `du` command.\n\nUsage:\n  du                  → displays disk usage for each directory and subdirectory\n  du -s <path>        → shows only the total disk usage for the specified path\n  du -f <file>        → shows the size of a single file only\n\nExamples:\n  du                  → prints usage for all folders recursively under the current directory\n  du -s Documents     → prints the total space used by the 'Documents' folder\n  du -f image.png     → displays only the size of 'image.png'\n\nFlags:\n  -s                  → summary mode (only total size)\n  -f                  → file mode (check one specific file)\n\nTip: Use this command to identify which folders or files are taking up the most space. Combine with `df` to get a complete view of your disk usage."
+}
+,
+
+{
+  "name": "df",
+  "category": "basic",
+  "desc": "Displays total and available disk space",
+  "definition": "Shows detailed disk usage information for all available drives or mounted volumes. Works similarly to the Unix `df` command.\n\nUsage:\n  df                  → displays disk usage for all available drives\n  df -h               → displays disk usage in human-readable format (KB, MB, GB)\n\nExamples:\n  df                  → lists all drives with total, used, and free space in bytes\n  df -h               → lists drives with formatted sizes (e.g., 120.5 GB, 15.3 GB)\n\nColumns:\n  Filesystem          → the drive or mount name\n  Size                → total storage size\n  Used                → amount of space currently used\n  Avail               → remaining available space\n  Use%                → percentage of space used\n  Mounted on          → the mount or drive location\n\nTip: Use `df -h` for an easier-to-read overview of your storage capacity on Windows or Unix."
+}
+,
+
+{
+  "name": "findgit",
+  "category": "git",
+  "desc": "Finds all Git repositories on the system",
+  "definition": "Scans your local drives or specified directory to locate all folders containing a `.git` subdirectory, identifying Git repositories automatically.\n\nUsage:\n  findgit         → scans the default user directory for Git repositories\n  findgit <path>  → scans a specific folder or drive for `.git` repositories\n\nExamples:\n  findgit         → searches within the user's home or projects directory\n  findgit D:\\Code → scans the D:\\Code folder for repositories\n\nTip: Useful for quickly finding all Git projects on your system or verifying repository locations."
+},
+
+{
+  "name": "programs",
+  "category": "system",
+  "desc": "Lists all installed or recognized applications",
+  "definition": "Displays a list of all applications and executable programs available to launch within PyNixShell. This includes built-in tools, linked executables, and registered scripts.\n\nUsage:\n  programs          → lists all recognized applications\n  programs -r       → refreshes the program cache and updates the list\n\nExamples:\n  programs          → shows all launchable apps (e.g., terminal, notepad, browser)\n  programs -r       → updates the list after adding new apps or executables\n\nTip: Use this command to view programs available for quick launching with the `launch` command."
+},
+
+{
+  "name": "launch",
+  "category": "system",
+  "desc": "Launches an installed or registered program",
+  "definition": "Opens a specific application or executable that is recognized by PyNixShell. Works similarly to the Linux `open` or Windows `start` command.\n\nUsage:\n  launch <program>      → launches the specified program\n  launch <program> <args> → runs the program with optional arguments\n\nExamples:\n  launch notepad         → opens Notepad\n  launch chrome https://intnix.app → opens Google Chrome with a URL\n  launch terminal        → opens a new PyNixShell terminal window\n\nTip: Use the `programs` command first to see the list of available apps."
+}
+,
+
+{
+  "name": "kill",
+  "category": "system",
+  "desc": "Terminates a running process by its PID",
+  "definition": "Forcefully ends a running process using its PID (process ID). Works similar to the Unix `kill` command.\n\nUsage:\n  kill <PID>       → terminates the specified process\n  kill -f <PID>    → forcefully terminates the process (if normal kill fails)\n\nExamples:\n  kill 1234        → stops the process with ID 1234\n  kill -f 5678     → forcefully ends the process with ID 5678\n\n⚠️ Warning: Use with caution. Terminating essential system processes may cause instability or loss of data."
+},
+
+{
+  "name": "opendrop",
+  "category": "network",
+  "desc": "Runs the OpenDrop LAN sharing program",
+  "definition": "Launches the OpenDrop Python-based local network sharing utility, which allows file transfer and chat between devices on the same LAN.\n\nUsage:\n  opendrop         → starts the OpenDrop program using the default Python interpreter\n\nDetails:\n  OpenDrop enables peer discovery, file sending, and LAN-based communication without requiring an internet connection.\n  It can host or join local sessions for sharing files securely between nearby computers.\n\nTip: Make sure `opendrop.py` or `opendropUnix.py` is in your current directory before running this command."
+},
+
+{
+  "name": "cat",
+  "category": "basic",
+  "desc": "Displays the contents of a file",
+  "definition": "Outputs the full contents of a file directly in the terminal. Works like the Unix `cat` command.\n\nUsage:\n  cat <filename>       → displays the file's contents\n  cat <path>           → displays the file at the given path\n\nExamples:\n  cat notes.txt        → prints everything inside 'notes.txt'\n  cat C:\\logs\\error.log → displays the contents of 'error.log'\n\nTip: Use this command to quickly read text files without opening an external editor."
+},
+
+{
+  "name": "clear",
+  "category": "basic",
+  "desc": "Clears the terminal screen",
+  "definition": "Usage: clear\n\nClears the PyNixShell terminal output, similar to the 'clear' command on Unix or 'cls' on Windows. This helps declutter the display without affecting running state or environment variables."
+}
+,
+{
+  "name": "rsync",
+  "category": "filesystem",
+  "desc": "Synchronizes a source file across the system or with a specific target file or folder",
+  "definition": "Usage:\n  rsync <path/to/source.ext>             → sync all files on system with the same name\n  rsync <path/to/source.ext> -t <target> → sync only to a specific file or folder\n\nThe 'rsync' command synchronizes identical-named files across the system, or directly to a target file/folder using the '-t' flag.\n\nFeatures:\n• Requires administrator privileges ('sudo rsync').\n• System-wide mode searches all drives for files with the same name and extension.\n• Targeted mode (-t) syncs only to the specified path.\n• Compares file size and hash to skip identical copies.\n• Prompts for confirmation before overwriting.\n\nExamples:\n  rsync C:\\Users\\Owen\\Desktop\\logo.png\n  rsync logo.png -t D:\\Backup\\Assets\\logo.png\n  rsync settings.json -t D:\\Configs\n\n⚠️ Warning:\nUse with care — system-wide synchronization may overwrite many files."
+}
+,
+
+{
+  "name": "donut",
+  "category": "fun",
+  "desc": "Displays a smooth spinning ASCII donut animation",
+  "definition": "Renders a rotating 3D ASCII donut animation directly in the terminal. The donut spins continuously until stopped by the user.\n\nUsage:\n  donut               → starts the donut animation (press ESC to stop)\n\nExamples:\n  donut               → displays a spinning donut in the terminal window\n\nDetails:\n• Uses mathematical rotation and shading to simulate a 3D spinning torus in ASCII form.\n• Press the ESC key at any time to stop the animation gracefully.\n• The animation runs smoothly in-place using ANSI cursor control (no flickering).\n• Fully cross-platform — works on Windows, macOS, and Linux.\n\nTip: Try running `donut` in fullscreen mode for the best visual effect. Press \"ESC\" to stop it at any time."
+}
+,
+
+{
+  "name": "grep",
+  "category": "search",
+  "desc": "Searches for text inside files (like Unix 'grep')",
+  "definition": "Usage:\n  grep <pattern> <filename>\n  grep -i <pattern> <filename>     # case-insensitive\n\nSearches the specified file for lines containing a given text pattern. Displays matching lines with their line numbers. The '-i' flag performs a case-insensitive search.\n\nExamples:\n  grep error logs.txt\n  grep -i warning server.log"
+}
+,
+
+{
+  "name": "head",
+  "category": "basic",
+  "desc": "Shows the first few lines of a file",
+  "definition": "Displays the beginning of a file, typically the first 3–10 lines, depending on configuration. Works like the Unix `head` command.\n\nUsage:\n  head <filename>      → shows the first 3 lines by default\n  head -n <count> <filename> → shows the first N lines\n\nExamples:\n  head log.txt         → prints the first 3 lines of 'log.txt'\n  head -n 10 report.txt → prints the first 10 lines\n\nTip: Use this to preview large files or check logs without displaying everything."
+},
+
+{
+  "name": "tail",
+  "category": "basic",
+  "desc": "Displays the last few lines of a file",
+  "definition": "Shows the end of a file, typically the last 3–10 lines, depending on configuration. Works like the Unix `tail` command.\n\nUsage:\n  tail <filename>          → shows the last 3 lines by default\n  tail -n <count> <filename> → shows the last N lines\n  tail -f <filename>       → continuously follows file changes in real-time (like log monitoring)\n\nExamples:\n  tail log.txt             → prints the last 3 lines of 'log.txt'\n  tail -n 10 report.txt    → prints the last 10 lines of 'report.txt'\n  tail -f system.log       → keeps printing new lines as they are added to 'system.log'\n\nTip: Use `tail -f` for monitoring live-updating files such as logs or process outputs."
+},
+
+{
+  "name": "tree",
+  "category": "basic",
+  "desc": "Displays the directory structure in a tree format",
+  "definition": "Recursively lists folders and files in a tree-like structure, showing how directories and files are nested. Works similarly to the Unix `tree` command.\n\nUsage:\n  tree                  → displays the folder structure of the current directory\n  tree <path>           → displays the structure of a specified directory\n  tree -L <depth>       → limits the tree depth to a specific number of levels\n\nExamples:\n  tree                  → prints all files and folders under the current path\n  tree C:\\Projects      → shows the directory tree for C:\\Projects\n  tree -L 2 src         → lists only two levels deep inside the 'src' folder\n\nTip: Use this command to visualize your project’s folder layout. Combine with `-L` to keep output concise for large directories."
+}
+,
+
+{
+  "name": "view",
+  "category": "filesystem",
+  "desc": "Displays folder or archive contents without extracting or entering",
+  "definition": "Lists all files and folders in a directory or inside a compressed archive.\n\nUsage:\n  view                   → lists contents of the current folder\n  view <path>            → lists contents of a specific folder\n  view -z <file.zip>     → lists files inside a ZIP archive\n  view -t <file.tar>     → lists files inside a TAR archive\n\nDetails:\n• Works for both folders and compressed archives.\n• Uses Python’s zipfile and tarfile modules to inspect archive contents.\n• Displays file sizes in a human-readable format (KB, MB, GB).\n\nTip: Combine this with the `ls`, `tree`, or `du` commands to explore files and archive structures easily."
+}
+,
+
+{
+  "name": "csync",
+  "category": "system",
+  "desc": "Synchronizes and cleans all command files in /commands",
+  "definition": "The `csync` command performs a full synchronization of all Python command files inside the `/commands` directory. It automatically reloads modified commands, imports new ones, and removes defunct or deleted commands that no longer exist in their source files.\n\nUsage:\n  csync               → reloads, imports, and cleans all external command files\n\nHow it Works:\n• Recursively scans the `/commands` folder for `.py` files.\n• Reloads and reimports any updated command files.\n• Removes any commands whose files were deleted or whose `@register_command` decorators were removed.\n• Keeps all registered commands in perfect sync with the current file structure.\n\nExamples:\n  csync               → performs a complete sync of all available commands\n\nNotes:\n- Automatically detects and removes empty or defunct command definitions.\n- You can safely modify or delete `.py` command files — running `csync` will reflect those changes instantly.\n\nTip:\nUse `lsc` to verify loaded commands after syncing."
+}
+,
+
+{
+  "name": "mod",
+  "category": "system",
+  "desc": "Executes a command after a timed delay",
+  "definition": "Delays the execution of any command by a specified number of seconds.\n\nUsage:\n  mod -t <seconds> <command>\n\nExamples:\n  mod -t 5 echo Hello world   → waits 5 seconds, then prints 'Hello world'\n  mod -t 10 ls                → waits 10 seconds, then lists files\n\nFeatures:\n• Non-blocking — runs in the background while you continue using the shell.\n• Accepts fractional seconds (e.g., 0.5).\n• Fully compatible with all PyNixShell commands.\n\nTip: Combine with other automation commands like 'loop' or 'watch' for delayed workflows."
+}
+,
+
+{
+  "name": "lsc",
+  "category": "system",
+  "desc": "Lists all external commands and their source files",
+  "definition": "Displays information about external command files stored in the /commands directory. It can show currently loaded commands in memory or scan the filesystem for all declared @register_command entries.\n\nUsage:\n  lsc                 → lists all active external commands currently loaded\n  lsc -c              → scans /commands recursively for all @register_command definitions\n\nExamples:\n  lsc                 → shows active commands with their full file paths\n  lsc -c              → scans source files to discover all registered commands, even if not currently loaded\n\nDetails:\n• Normal mode lists active, loaded commands and where they were imported from.\n• -c mode searches through each .py file in /commands to detect all registered commands.\n• Supports recursive folder scanning (subdirectories inside /commands).\n\nTip:\nRun 'csync' before 'lsc' to ensure your command list is up to date after adding or removing files."
+}
+,
+
+{
+  "name": "ssh",
+  "category": "network",
+  "desc": "Connect two computers on the same network for chat and file sharing",
+  "definition": "Usage:\n  ssh host   → start hosting a LAN chat + file session\n  ssh join   → discover and connect to a host\n\nCommands inside session:\n  help                - show this help\n  listfiles           - list shared files\n  push <file>         - upload a file to host\n  pushdir <folder>    - upload a folder as a zip\n  pull <file>         - download a file\n  pulldir <folder>    - download a zipped folder\n  rmv <name>          - remove a file or folder from host\n  exit                - disconnect from session\n\nThe ssh command allows peer-to-peer communication and file sharing over LAN between two or more computers running PyNixShell. It automatically detects available hosts using UDP broadcast and connects using TCP sockets for reliable communication."
+}
+,
+
+{
+  "name": "nano",
+  "category": "basic",
+  "desc": "Advanced Nano-like text editor with multiple files, clipboard integration, and navigation controls.",
+  "definition": "Usage:\n  nano <filename>\n\nExample:\n  nano main.py\n  nano notes.txt\n\nDescription:\n  Launches a full-screen, terminal-based text editor inspired by GNU Nano. Supports editing multiple files simultaneously, clipboard integration, tab switching, and real-time file management.\n\nDetails:\n  • Multi-file tabbed editing\n  • Copy/paste with system clipboard (requires pyperclip)\n  • Line numbers, scrollable viewport, and navigation keys\n  • File creation, opening, and saving within the editor\n  • Keyboard shortcuts for navigation and management\n\nShortcuts:\n  Ctrl+S → Save current file\n  Ctrl+Q → Quit editor\n  Ctrl+W → Close current file/tab\n  Ctrl+V → Paste from clipboard\n  Ctrl+T → Create new file\n  Ctrl+O → Open existing file\n  Tab    → Switch between open files\n  Ctrl+H → Jump to top of file\n  Ctrl+J → Jump to bottom of file\n  ↑/↓/←/→ → Move cursor\n  Backspace → Delete character\n  Enter → Insert new line\n\nOutput:\n  Displays a top bar with open files, a control header, and a live view of file contents with line numbers.\n\nRequirements:\n  - Python standard library (curses, os)\n  - 'pyperclip' module for clipboard functionality"
+}
+,
+
+{
+  "name": "ungit",
+  "category": "git",
+  "desc": "Removes Git tracking (.git folder) from a directory",
+  "definition": "Usage:\n  ungit [path]\n\nCompletely removes Git tracking from the specified directory or the current one if no path is provided.\n\nExamples:\n  ungit            # Removes .git from the current directory\n  ungit myproject  # Removes .git from the 'myproject' folder\n\nDetails:\n- Recursively removes all .git folders, even nested ones.\n- Unlocks read-only files before deletion.\n- On Windows, terminates any running git.exe process to avoid lock issues.\n- Verifies after cleanup to confirm the directory is no longer tracked by Git."
+}
+,
+
+{
+  "name": "newline",
+  "category": "basic",
+  "desc": "Inserts a blank line in the terminal output",
+  "definition": "Creates an empty line in the terminal, similar to pressing Enter manually. This is useful for improving readability or visually separating command outputs.\n\nUsage:\n  newline               → prints one blank line\n  newline <count>       → prints multiple blank lines\n\nExamples:\n  newline               → adds one empty line\n  newline 3             → adds three empty lines\n\nTip:\nUse 'newline' between commands to keep the terminal display organized when working with long outputs."
+}
+,
+
+{
+  "name": "find",
+  "category": "search",
+  "desc": "Performs a global, multi-threaded file search across all drives with live progress display.",
+  "definition": "Usage:\n  find <filename>         → search all drives for any file matching that name\n  find <filename>.<ext>   → search all drives for that exact file type\n\nExample:\n  find main.py\n  find notes.txt\n\nDescription:\n  Searches all available drives on the system for files matching the given name or pattern. Uses multiple threads to scan directories in parallel and displays a live progress bar with file count. On completion, lists all matching files with their full paths.\n\nDetails:\n  • Multi-threaded scanning for speed\n  • Real-time progress bar and spinner animation\n  • Filters out system directories for performance\n  • Works on both Windows and Unix-like systems\n\nOutput:\n  - Lists full paths of all found files\n  - Displays total number of files scanned and matches found"
+}
+,
+
+{
+  "name": "pptx",
+  "category": "basic",
+  "desc": "Extracts and displays text content from PowerPoint (.pptx) files slide by slide.",
+  "definition": "Usage:\n  pptx -e <file.pptx>\n\nExample:\n  pptx -e presentation.pptx\n\nDescription:\n  Opens a PowerPoint (.pptx) file and extracts all readable text content from each slide. Displays slide numbers, headers, and body text in a structured format.\n\nDetails:\n  • Requires the 'python-pptx' library\n  • Detects slide headers and body text automatically\n  • Skips empty or non-text elements for clarity\n  • Displays 'No text found' if a slide contains no readable elements\n\nOutput:\n  - Slide number and divider lines for clarity\n  - Header text and any additional body paragraphs\n  - Summary confirmation once extraction is complete"
+}
+,
+
+{
+  "name": "tar",
+  "category": "filesystem",
+  "desc": "Creates a TAR archive using the system’s native tar utility",
+  "definition": "Combines a folder or file into a .tar archive using the host system’s native tar command.\n\nUsage:\n  tar <source_folder> <destination.tar>\n\nExamples:\n  tar MyProject backup.tar\n  tar Documents archive.tar\n\nDetails:\n• Uses the built-in 'tar' utility available on Linux, macOS, and Windows 10/11.\n• If the system tar tool is unavailable, automatically falls back to Python’s tarfile module.\n• The resulting archive preserves directory structure and file metadata.\n\nTip: Use 'view -t <file.tar>' to inspect the contents of a TAR archive without extracting it."
+}
+,
+{
+  "name": "alias",
+  "category": "system",
+  "desc": "Creates custom persistent command shortcuts",
+  "definition": "Defines and stores command shortcuts (aliases) that persist across sessions.\n\nUsage:\n  alias                       → lists all saved aliases\n  alias name='command'        → creates a new persistent alias\n\nExamples:\n  alias ll='ls -l'\n  alias gs='git status'\n\nDetails:\n• Aliases are saved in a file named 'pynix_aliases.json' located in the same directory as your terminal.\n• Automatically reloaded every time PyNixShell starts.\n• Supports both single and double quotes for command definitions.\n• Each alias behaves like a native built-in command once defined.\n\nTip: Use aliases to shorten frequently used commands and create your own custom shortcuts that persist between sessions."
+}
+,
+{
+  "name": "date",
+  "category": "system",
+  "desc": "Displays the current date and time",
+  "definition": "Shows the system's current date and time in a human-readable format.\n\nUsage:\n  date              → displays the current date and time\n  date -i           → displays date and time in ISO format (e.g., 2025-10-30T15:47:29)\n\nExamples:\n  date              → Thu Oct 30 15:47:29 2025\n  date -i           → 2025-10-30T15:47:29.482191\n\nTip: Use this command to quickly check the system clock or timestamp events."
+}
+,
+
+
+{
+  "name": "unalias",
+  "category": "system",
+  "desc": "Removes defined command aliases",
+  "definition": "Deletes one or all existing aliases from both memory and the persistent alias file.\n\nUsage:\n  unalias <name>       → removes a single alias\n  unalias -a           → removes all aliases\n\nExamples:\n  unalias ll\n  unalias -a\n\nDetails:\n• Updates the same 'pynix_aliases.json' file located in the terminal's directory.\n• Removed aliases take effect immediately.\n• Works alongside the alias command for full control of your saved shortcuts.\n\nTip: Use 'unalias -a' to quickly clear all custom aliases and start fresh."
+}
+,
+
+
+
+{
+  "name": "zip",
+  "category": "filesystem",
+  "desc": "Creates a ZIP archive using native system compression tools",
+  "definition": "Compresses a folder or file into a .zip archive using your operating system's built-in tools.\n\nUsage:\n  zip <source_folder> <destination_name.zip>\n\nExamples:\n  zip MyProject backup.zip\n  zip Documents Archive.zip\n\nDetails:\n• On Windows, uses PowerShell's native Compress-Archive command.\n• On macOS/Linux, uses the system 'zip' command if available.\n• If unavailable, automatically falls back to Python's built-in shutil.make_archive.\n• Preserves folder structure and file timestamps.\n\nTip: This provides the same result as right-clicking a folder and selecting “Send to → Compressed (zipped) folder.”"
+}
+,
+
+{
+  "name": "add",
+  "category": "system",
+  "desc": "Copies and installs a new Python command permanently",
+  "definition": "Usage: add <file.py>\nCopies a Python command file into /commands/, loads it immediately, and ensures it auto-loads in future sessions. If a file with the same name exists, confirmation is requested before overwriting."
+},
+
+{
+  "name": "sudo",
+  "category": "system",
+  "desc": "Runs a Windows command as Administrator",
+  "definition": "Usage: sudo <windows_command>\n\nExecutes the specified Windows command with administrative privileges, similar to Linux 'sudo'.\n\nWhen run, PyNixShell launches a PowerShell window with elevated rights to perform the command. Only available on Windows systems."
+}
+,
+
+
+{
+  "name": "watch",
+  "category": "system",
+  "desc": "Repeats a command at regular intervals",
+  "definition": "Executes a specified command repeatedly at a defined time interval. Similar to the Unix `watch` command.\n\nUsage:\n  watch -n <seconds> <command>        → runs the command repeatedly every N seconds\n  watch -n <seconds> -t <count> <command>  → runs the command N times total\n\nExamples:\n  watch -n 2 ls                       → runs `ls` every 2 seconds\n  watch -n 5 -t 3 du                  → runs `du` every 5 seconds, three times total\n\nTip: Useful for monitoring changes in directories, system status, or running processes in real-time."
+}
+
+
+
+
+
+
+]

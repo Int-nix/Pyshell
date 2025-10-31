@@ -37,6 +37,60 @@
 ,
 
 {
+  "name": "-s",
+  "category": "search",
+  "desc": "Searches for files with a specific extension in the current or given directory.",
+  "definition": "Usage:\n  -s .ext              → Lists all files in the current directory with the given extension\n  -s .ext [path]       → Optionally specify a directory to search\n\nExamples:\n  -s .png\n  -s .txt /users/owena/projects\n\nDescription:\n  Scans the specified directory (or the current working directory by default) for all files matching the given extension.\n  Results include the count and list of matching files, with clear warnings if none are found or if the path is invalid."
+}
+,
+
+ {
+    "name": "root",
+    "category": "Intnix-wingui",
+    "desc": "Quickly jump to the system root directory.",
+    "definition": "Usage:\n  root\n\nDescription:\n  Detects the current platform and instantly changes the working directory to the root location (C:\\\\ on Windows, / on Unix systems)."
+  },
+  {
+    "name": "dock",
+    "category": "Intnix-wingui",
+    "desc": "Launches the PyNix Dock — a macOS-style, auto-updating app dock.",
+    "definition": "Usage:\n  dock [left|right|bottom]     → Launch dock on a specified edge\n  dock kill                    → Close the dock\n\nDescription:\n  Displays a translucent dock using /dockitems as app sources. Each folder in /dockitems represents an app with an icon and launch file. Automatically refreshes when files change and supports single-instance mode."
+  },
+  
+  {
+  "name": "power",
+  "category": "Intnix-wingui",
+  "desc": "Opens a floating glass-style power menu with shutdown, restart, sleep, and logout options.",
+  "definition": "Usage:\n  power        → Open power control menu\n  power kill   → Close if running\n\nDescription:\n  Displays a draggable, semi-transparent GUI with system power actions. Designed for Windows and runs as a separate non-blocking process."
+}
+,
+  {
+    "name": "topbar",
+    "category": "Intnix-wingui",
+    "desc": "Displays the macOS-style top bar showing open windows, time, weather, and system icons.",
+    "definition": "Usage:\n  topbar        → Launch top bar\n  topbar kill   → Close top bar\n\nDescription:\n  Creates a unified top bar UI showing open window titles (click to focus), live system time, weather, and clickable system icons for settings, power, sound, Bluetooth, etc."
+  },
+  {
+    "name": "winmgr",
+    "category": "Intnix-wingui",
+    "desc": "Manages window layout and visibility directly from the terminal.",
+    "definition": "Usage:\n  winmgr list                   → Lists all open windows\n  winmgr tile                   → Tiles all visible windows (below top bar)\n  winmgr center                 → Centers all windows\n  winmgr close <title|hwnd>     → Closes a window by title or handle\n\nDescription:\n  Enumerates all visible, user-facing windows. Supports tiling into a dynamic grid, centering, or closing windows programmatically."
+  },
+  {
+    "name": "desktop",
+    "category": "Intnix-wingui",
+    "desc": "Launches the Nebula Desktop — a fullscreen drag-and-drop workspace.",
+    "definition": "Usage:\n  desktop        → Launch desktop environment\n  desktop kill   → Close desktop\n\nDescription:\n  Opens the Nebula Desktop in a separate process. Displays all desktop files and folders as draggable icons with persistent positions. Includes background image support and ESC to exit."
+  },
+  {
+    "name": "volume",
+    "category": "Intnix-wingui",
+    "desc": "Opens a glass-like volume overlay using PyQt5 and pycaw.",
+    "definition": "Usage:\n  volume        → Open volume overlay\n  volume kill   → Close overlay\n\nDescription:\n  Opens a floating, translucent PyQt5 overlay for system volume control. Includes a smooth animation, mute/unmute toggle, and close (×) button. Runs as a separate background process independent of the Tkinter UI."
+  }
+  ,
+
+{
   "name": "admin",
   "category": "system",
   "desc": "Relaunches PyNixShell with full Administrator privileges on Windows.",
