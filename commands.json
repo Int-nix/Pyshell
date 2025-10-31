@@ -265,6 +265,14 @@
 ,
 
 {
+  "name": "nano",
+  "category": "basic",
+  "desc": "Advanced Nano-like text editor with multiple files, clipboard integration, and navigation controls.",
+  "definition": "Usage:\n  nano <filename>\n\nExample:\n  nano main.py\n  nano notes.txt\n\nDescription:\n  Launches a full-screen, terminal-based text editor inspired by GNU Nano. Supports editing multiple files simultaneously, clipboard integration, tab switching, and real-time file management.\n\nDetails:\n  • Multi-file tabbed editing\n  • Copy/paste with system clipboard (requires pyperclip)\n  • Line numbers, scrollable viewport, and navigation keys\n  • File creation, opening, and saving within the editor\n  • Keyboard shortcuts for navigation and management\n\nShortcuts:\n  Ctrl+S → Save current file\n  Ctrl+Q → Quit editor\n  Ctrl+W → Close current file/tab\n  Ctrl+V → Paste from clipboard\n  Ctrl+T → Create new file\n  Ctrl+O → Open existing file\n  Tab    → Switch between open files\n  Ctrl+H → Jump to top of file\n  Ctrl+J → Jump to bottom of file\n  ↑/↓/←/→ → Move cursor\n  Backspace → Delete character\n  Enter → Insert new line\n\nOutput:\n  Displays a top bar with open files, a control header, and a live view of file contents with line numbers.\n\nRequirements:\n  - Python standard library (curses, os)\n  - 'pyperclip' module for clipboard functionality"
+}
+,
+
+{
   "name": "ungit",
   "category": "git",
   "desc": "Removes Git tracking (.git folder) from a directory",
@@ -277,6 +285,22 @@
   "category": "basic",
   "desc": "Inserts a blank line in the terminal output",
   "definition": "Creates an empty line in the terminal, similar to pressing Enter manually. This is useful for improving readability or visually separating command outputs.\n\nUsage:\n  newline               → prints one blank line\n  newline <count>       → prints multiple blank lines\n\nExamples:\n  newline               → adds one empty line\n  newline 3             → adds three empty lines\n\nTip:\nUse 'newline' between commands to keep the terminal display organized when working with long outputs."
+}
+,
+
+{
+  "name": "find",
+  "category": "search",
+  "desc": "Performs a global, multi-threaded file search across all drives with live progress display.",
+  "definition": "Usage:\n  find <filename>         → search all drives for any file matching that name\n  find <filename>.<ext>   → search all drives for that exact file type\n\nExample:\n  find main.py\n  find notes.txt\n\nDescription:\n  Searches all available drives on the system for files matching the given name or pattern. Uses multiple threads to scan directories in parallel and displays a live progress bar with file count. On completion, lists all matching files with their full paths.\n\nDetails:\n  • Multi-threaded scanning for speed\n  • Real-time progress bar and spinner animation\n  • Filters out system directories for performance\n  • Works on both Windows and Unix-like systems\n\nOutput:\n  - Lists full paths of all found files\n  - Displays total number of files scanned and matches found"
+}
+,
+
+{
+  "name": "pptx",
+  "category": "basic",
+  "desc": "Extracts and displays text content from PowerPoint (.pptx) files slide by slide.",
+  "definition": "Usage:\n  pptx -e <file.pptx>\n\nExample:\n  pptx -e presentation.pptx\n\nDescription:\n  Opens a PowerPoint (.pptx) file and extracts all readable text content from each slide. Displays slide numbers, headers, and body text in a structured format.\n\nDetails:\n  • Requires the 'python-pptx' library\n  • Detects slide headers and body text automatically\n  • Skips empty or non-text elements for clarity\n  • Displays 'No text found' if a slide contains no readable elements\n\nOutput:\n  - Slide number and divider lines for clarity\n  - Header text and any additional body paragraphs\n  - Summary confirmation once extraction is complete"
 }
 ,
 

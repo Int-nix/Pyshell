@@ -637,6 +637,51 @@ def nano(args):
         curses.wrapper(editor)
     except Exception as e:
         print(f"Editor error: {e}")
+        
+@register_command("rep")
+def rep_cmd(args):
+    """
+    Replace one file with another.
+    
+    Usage:
+      rep <source> -t <target>
+
+    Example:
+      rep new_version.py -t main.py
+    """
+    import os
+    import shutil
+
+    if len(args) < 3 or args[1] != "-t":
+        print("Usage: rep <source> -t <target>")
+        return
+
+    source, target = args[0], args[2]
+    source = os.path.abspath(source)
+    target = os.path.abspath(target)
+
+    if not os.path.exists(source):
+        print(f"❌ Source file not found: {source}")
+        return
+
+    # Create target directory if it doesn't exist
+    target_dir = os.path.dirname(target)
+    if target_dir and not os.path.exists(target_dir):
+        try:
+            os.makedirs(target_dir)
+            print(f"📁 Created missing target directory: {target_dir}")
+        except Exception as e:
+            print(f"⚠️ Failed to create target directory: {e}")
+            return
+
+    try:
+        shutil.copy2(source, target)
+        print(f"✅ Replaced '{target}' with '{source}' successfully.")
+    except PermissionError:
+        print("⚠️ Permission denied while replacing file.")
+    except Exception as e:
+        print(f"⚠️ Replacement failed: {e}")
+
 
         
 @register_command("rfpt")
@@ -3105,7 +3150,186 @@ def nano(args):
             try: p.close()
             except: pass
 
-  
+@register_command("pptx")
+def pptx_extract_cmd(args):
+    """
+    Extract and display text from PowerPoint (.pptx) files.
+
+    Usage:
+      pptx -e <file.pptx>
+
+    Example:
+      pptx -e presentation.pptx
+
+    Description:
+      Displays all text content slide by slide, showing each
+      slide's title, headers, and body text in a readable format.
+    """
+    import os
+    from pptx import Presentation
+
+    # --- Argument handling ---
+    if len(args) < 2 or args[0] != "-e":
+        print("Usage: pptx -e <file.pptx>")
+        return
+
+    file_path = args[1]
+    if not os.path.exists(file_path):
+        print(f"❌ File not found: {file_path}")
+        return
+
+    try:
+        prs = Presentation(file_path)
+    except Exception as e:
+        print(f"⚠️ Failed to open PowerPoint: {e}")
+        return
+
+    print(f"\n📊 Extracting text from: {file_path}\n")
+    if not prs.slides:
+        print("⚠️ No slides found in this presentation.")
+        return
+
+    # --- Loop through slides ---
+    for idx, slide in enumerate(prs.slides, start=1):
+        print(f"──────────────────────────────")
+        print(f"🖼️  Slide {idx}")
+        print(f"──────────────────────────────")
+
+        shapes = slide.shapes
+        text_found = False
+        header = ""
+        body_texts = []
+
+        for shape in shapes:
+            if not hasattr(shape, "text"):
+                continue
+            text = shape.text.strip()
+            if not text:
+                continue
+
+            # Try to detect header vs body
+            if not header:
+                header = text
+            else:
+                body_texts.append(text)
+            text_found = True
+
+        if not text_found:
+            print("  (No text found on this slide)")
+        else:
+            print(f"  Header: {header}")
+            for i, paragraph in enumerate(body_texts, start=1):
+                print(f"  Body {i}: {paragraph}")
+
+        print()  # blank line between slides
+
+    print("✅ Done extracting text.\n")
+
+@register_command("find")
+def find_cmd(args):
+    """
+    Global fast file search (multi-threaded with progress animation)
+    Usage:
+      find <filename>         → search all drives for any file matching that name
+      find <filename>.<ext>   → search all drives for that exact file type
+    Example:
+      find main.py
+      find notes.txt
+    """
+    import fnmatch
+    import string
+    import threading
+    import queue
+    import time
+    import sys
+
+    if not args:
+        print("Usage: find <filename> or find <filename>.<ext>")
+        return
+
+    query = args[0].lower()
+    print(f"🔍 Searching for '{query}' across all drives...\n")
+
+    # Determine all root drives
+    if os.name == "nt":
+        roots = [f"{d}:\\" for d in string.ascii_uppercase if os.path.exists(f"{d}:\\")]
+    else:
+        roots = ["/"]
+
+    # Thread-safe structures
+    found = []
+    q = queue.Queue()
+    scanned = 0
+    total_estimate = 1_000_000  # arbitrary for smooth animation
+
+    # --- Worker Thread Function ---
+    def worker():
+        nonlocal scanned
+        while True:
+            try:
+                root = q.get(timeout=1)
+            except queue.Empty:
+                break
+            for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+                # Filter system dirs for speed
+                dirnames[:] = [
+                    d for d in dirnames
+                    if not d.startswith("$") and "System Volume" not in d and "Windows" not in d
+                ]
+                for name in filenames:
+                    scanned += 1
+                    name_lower = name.lower()
+                    if query in name_lower:
+                        found.append(os.path.join(dirpath, name))
+            q.task_done()
+
+    # --- Fill queue with all root drives ---
+    for r in roots:
+        q.put(r)
+
+    # --- Start Worker Threads ---
+    threads = []
+    for _ in range(min(8, len(roots) * 2)):  # up to 8 threads
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+        threads.append(t)
+
+    # --- Progress Animation Thread ---
+    def progress_anim():
+        spinner = "|/-\\"
+        idx = 0
+        while any(t.is_alive() for t in threads):
+            percent = min(100, int((scanned / total_estimate) * 100))
+            bar = "█" * (percent // 2) + "-" * (50 - percent // 2)
+            sys.stdout.write(
+                f"\r⚙️ [{bar}] {percent:3d}%  {spinner[idx % len(spinner)]}  Scanned: {scanned:,} files"
+            )
+            sys.stdout.flush()
+            idx += 1
+            time.sleep(0.1)
+        sys.stdout.write("\r" + " " * 100 + "\r")  # clear line
+
+    anim_thread = threading.Thread(target=progress_anim, daemon=True)
+    anim_thread.start()
+
+    # Wait for queue + threads
+    q.join()
+    for t in threads:
+        t.join()
+
+    time.sleep(0.2)  # allow animation to settle
+    sys.stdout.write("\r✅ Scan complete!\n\n")
+
+    # --- Results ---
+    if found:
+        for match in found:
+            print(f"📄 {match}")
+        print(f"\n✅ Found {len(found)} matching file(s) across {len(roots)} drive(s).")
+    else:
+        print("❌ No matches found.")
+    print(f"\n🔎 Scanned approximately {scanned:,} files total.\n")
+
+
 # =======================================
 # Command Execution
 # =======================================
