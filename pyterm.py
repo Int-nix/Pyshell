@@ -25,6 +25,10 @@ import datetime
 import importlib.util
 import hashlib
 import inspect
+import uuid
+
+_active_loops = {}
+
 
 # at module top
 dock_window = None
@@ -342,42 +346,86 @@ def list_programs(args):
 
 @register_command("launch")
 def launch_program(args):
-    """Launch a program by number or filename."""
+    """
+    Launch a program by number or filename.
+
+    Usage:
+        launch <number|filename>
+        launch -n <number|filename>   # open in new terminal window
+
+    Description:
+        Launches a file or script from the last listed program list
+        or by direct path. The -n flag opens it in a new PyShell terminal window.
+    """
+    import os
+    import subprocess
+    import webbrowser
+    import sys
+
     global last_program_list
+
+    if not args:
+        print("Usage: launch <number or filename> [-n for new terminal window]")
+        return
+
+    # --- Detect -n flag ---
+    new_window = False
+    if "-n" in args:
+        new_window = True
+        args.remove("-n")
+
     if not args:
         print("Usage: launch <number or filename>")
         return
 
     target = args[0]
 
-    # Try launching by number
+    # --- Resolve file target ---
     if target.isdigit():
         idx = int(target) - 1
         if 0 <= idx < len(last_program_list):
             file_to_open = last_program_list[idx]
         else:
-            print("Invalid number.")
+            print("❌ Invalid number.")
             return
     else:
         file_to_open = target
 
     if not os.path.exists(file_to_open):
-        print(f"File not found: {file_to_open}")
+        print(f"❌ File not found: {file_to_open}")
         return
 
+    # --- Launch behavior ---
     try:
         if file_to_open.endswith(".py"):
-            # Run Python scripts in a new process
-            subprocess.Popen(["python", file_to_open], shell=True)
+            if new_window:
+                # 🪟 Launch in a new terminal window (cross-platform)
+                if os.name == "nt":
+                    subprocess.Popen(
+                        ["start", "cmd", "/k", f'python "{file_to_open}"'],
+                        shell=True
+                    )
+                else:
+                    subprocess.Popen(
+                        ["x-terminal-emulator", "-e", f'python3 "{file_to_open}"'],
+                        shell=False
+                    )
+                print(f"🚀 Launched {file_to_open} in new terminal window.")
+            else:
+                subprocess.Popen([sys.executable, file_to_open], shell=True)
+                print(f"🚀 Launched {file_to_open} (background).")
+
         elif file_to_open.endswith(".html"):
-            # Open HTML files in the default web browser
             webbrowser.open(file_to_open)
+            print(f"🌐 Opening {file_to_open} in web browser.")
+
         else:
-            # Use Windows default program
             os.startfile(file_to_open)
-        print(f"Launching {file_to_open}...")
+            print(f"📂 Opening {file_to_open} with default program.")
+
     except Exception as e:
-        print(f"Error launching file: {e}")
+        print(f"⚠️ Error launching file: {e}")
+
         
 @register_command("touch")
 def touch(args):
@@ -3937,6 +3985,2111 @@ def admin_cmd(args):
     else:
         print("✅ Already running as Administrator.")
 
+@register_command("loop")
+def loop_cmd(args):
+    """
+    Repeatedly execute a command with optional limits or delays.
+
+    Usage:
+      loop -t <count> <command> [args...]     → run <count> times
+      loop -i <command> [args...]             → run indefinitely
+      loop -d <command> [args...]             → run once (structured form)
+      loop -t 5 -s 2 <command>                → run 5 times, 2s delay
+      loop -i -s 3 <command>                  → run forever, 3s delay
+
+    Use 'break' or 'endloop' to stop all loops.
+    """
+
+    import subprocess
+    import shlex
+
+    if not args:
+        print("Usage: loop [-t count | -i | -d] [-s seconds] <command>")
+        return
+
+    # --- Defaults ---
+    loop_type = None
+    loop_count = 1
+    delay = 0
+    command_parts = []
+
+    # --- Parse Flags ---
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "-t":
+            loop_type = "times"
+            if i + 1 < len(args):
+                loop_count = int(args[i + 1])
+                i += 1
+            else:
+                print("⚠️ Missing number after -t")
+                return
+        elif arg == "-i":
+            loop_type = "indefinite"
+        elif arg == "-d":
+            loop_type = "once"
+        elif arg == "-s":
+            if i + 1 < len(args):
+                delay = float(args[i + 1])
+                i += 1
+            else:
+                print("⚠️ Missing number after -s")
+                return
+        else:
+            command_parts = args[i:]
+            break
+        i += 1
+
+    if not command_parts:
+        print("⚠️ No command specified.")
+        return
+
+    command_str = " ".join(command_parts)
+
+    # --- Loop ID ---
+    loop_id = str(uuid.uuid4())[:8]
+
+    def run_loop():
+        print(f"🔁 Starting loop {loop_id} → {command_str}")
+        count = 0
+        while loop_id in _active_loops:
+            if loop_type == "times" and count >= loop_count:
+                break
+
+            # Run command
+            execute_command(command_str)
+
+            count += 1
+            if loop_type == "once":
+                break
+            if delay > 0:
+                time.sleep(delay)
+
+            if loop_type == "times" and count >= loop_count:
+                break
+
+        print(f"✅ Loop {loop_id} finished or stopped.")
+        _active_loops.pop(loop_id, None)
+
+    # Register and start
+    _active_loops[loop_id] = True
+    t = threading.Thread(target=run_loop, daemon=True)
+    t.start()
+
+@register_command("break")
+@register_command("endloop")
+def break_loops(args):
+    """Stops all currently running loops."""
+    if not _active_loops:
+        print("⚠️ No active loops.")
+        return
+    for k in list(_active_loops.keys()):
+        _active_loops.pop(k, None)
+    print("🛑 All loops stopped.")
+    
+@register_command("caldr")
+def caldr_cmd(args):
+    """
+    Displays a calendar for the current (or specified) month in the terminal.
+
+    Usage:
+        caldr                → show current month
+        caldr <year> <month> → show a specific month (e.g. caldr 2025 12)
+    """
+    import calendar
+    from datetime import datetime
+
+    # --- Determine target month/year ---
+    if len(args) == 2:
+        try:
+            year = int(args[0])
+            month = int(args[1])
+        except ValueError:
+            print("Usage: caldr [year month]")
+            return
+    else:
+        now = datetime.now()
+        year, month = now.year, now.month
+
+    # --- Calendar Setup ---
+    cal = calendar.TextCalendar(firstweekday=0)
+    month_name = calendar.month_name[month]
+    output = cal.formatmonth(year, month)
+
+    # --- Header with emoji + highlight ---
+    print(f"📅 {month_name} {year}")
+    print(output)
+
+@register_command("chown")
+def chown_cmd(args):
+    """
+    Interactive file ownership changer for Intnix.
+    Cross-platform arrow-key menu — works on Windows, macOS, and Linux.
+
+    Usage:
+        chown <filename>
+    """
+    import os, platform, sys, json
+
+    if not args:
+        print("Usage: chown <filename>")
+        return
+
+    filename = args[0]
+    if not os.path.exists(filename):
+        print(f"❌ File not found: {filename}")
+        return
+
+    # --- Detect OS user folder ---
+    sys_type = platform.system()
+    if sys_type == "Windows":
+        users_dir = "C:\\Users"
+    elif sys_type == "Darwin":
+        users_dir = "/Users"
+    else:
+        users_dir = "/home"
+
+    if not os.path.exists(users_dir):
+        print(f"⚠️ Could not find users folder for {sys_type}.")
+        return
+
+    # --- Gather user list ---
+    try:
+        users = [u for u in os.listdir(users_dir)
+                 if not u.lower().startswith(("default", "public", "all users"))]
+        users.sort()
+    except Exception as e:
+        print(f"⚠️ Error reading users: {e}")
+        return
+
+    users.append("❌ Cancel")
+
+    # --- Input Handling (cross-platform) ---
+    if os.name == "nt":
+        import msvcrt
+        def get_key():
+            ch = msvcrt.getch()
+            if ch in (b'\x00', b'\xe0'):
+                ch = msvcrt.getch()
+                if ch == b'H': return "UP"
+                if ch == b'P': return "DOWN"
+            elif ch == b'\r': return "ENTER"
+            elif ch == b'\x1b': return "ESC"
+            elif ch == b'q': return "ESC"
+            return None
+    else:
+        import termios, tty
+        def get_key():
+            fd = sys.stdin.fileno()
+            old = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                ch = sys.stdin.read(3)
+                if ch == "\x1b[A": return "UP"
+                if ch == "\x1b[B": return "DOWN"
+                if ch == "\n": return "ENTER"
+                if ch == "\x1b" or ch == "q": return "ESC"
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+            return None
+
+    # --- Menu Loop ---
+    selected = 0
+    while True:
+        os.system("cls" if os.name == "nt" else "clear")
+        print(f"📁 Change owner for: {os.path.basename(filename)}\n")
+        print("Select a new owner (↑ ↓ to move, Enter to confirm, Esc to cancel):\n")
+
+        for i, u in enumerate(users):
+            prefix = "👉" if i == selected else "  "
+            print(f"{prefix} {u}")
+
+        key = get_key()
+        if key == "UP":
+            selected = (selected - 1) % len(users)
+        elif key == "DOWN":
+            selected = (selected + 1) % len(users)
+        elif key == "ENTER":
+            choice = users[selected]
+            if choice == "❌ Cancel":
+                print("\n❎ Operation cancelled.")
+                break
+            else:
+                meta_file = f"{filename}.meta.json"
+                data = {"owner": choice}
+                with open(meta_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+                print(f"\n✅ Ownership changed to {choice}.")
+                break
+        elif key == "ESC":
+            print("\n❎ Operation cancelled.")
+            break
+
+@register_command("gawk")
+def gawk_cmd(args):
+    """
+    Performs text replacement inside a file, similar to 'awk' or 'sed'.
+
+    Usage:
+        gawk <search_text> <filename> <replace_text>
+
+    Example:
+        gawk hello example.txt world
+
+    This replaces all occurrences of 'hello' with 'world' in example.txt.
+    """
+    import os
+
+    if len(args) < 3:
+        print("Usage: gawk <search_text> <filename> <replace_text>")
+        return
+
+    search_text = args[0]
+    filename = args[1]
+    replace_text = " ".join(args[2:])  # allow multi-word replacement
+
+    if not os.path.exists(filename):
+        print(f"❌ File not found: {filename}")
+        return
+
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        count = content.count(search_text)
+        if count == 0:
+            print(f"⚠️ No matches found for '{search_text}'.")
+            return
+
+        new_content = content.replace(search_text, replace_text)
+
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(new_content)
+
+        print(f"✅ Replaced {count} occurrence(s) of '{search_text}' with '{replace_text}' in {filename}.")
+
+    except Exception as e:
+        print(f"⚠️ Error editing file: {e}")
+        
+@register_command("pdpf")
+def pdpf_cmd(args):
+    """
+    Converts (prints) any supported file type into a PDF file.
+
+    Usage:
+        pdpf <file>
+        pdpf <file> [output.pdf]
+
+    Supported input types:
+      .txt, .md, .rtf, .html, .png, .jpg, .jpeg, .bmp,
+      .docx, .pptx, .csv, .xlsx
+    """
+    import os
+    import mimetypes
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    from PIL import Image
+    import pypandoc
+
+    if not args:
+        print("Usage: pdpf <file> [output.pdf]")
+        return
+
+    file_path = args[0]
+    if not os.path.exists(file_path):
+        print(f"❌ File not found: {file_path}")
+        return
+
+    # --- Determine output filename ---
+    if len(args) > 1:
+        output_pdf = args[1]
+    else:
+        output_pdf = os.path.splitext(file_path)[0] + ".pdf"
+
+    ext = os.path.splitext(file_path)[1].lower()
+
+    try:
+        # === TEXT / MARKDOWN / RTF / HTML ===
+        if ext in [".txt", ".md", ".rtf", ".html"]:
+            pypandoc.convert_text(open(file_path, encoding="utf-8").read(),
+                                  "pdf", format=ext[1:],
+                                  outputfile=output_pdf,
+                                  extra_args=['--standalone'])
+            print(f"📝 Converted {file_path} → {output_pdf}")
+
+        # === IMAGE FILES ===
+        elif ext in [".png", ".jpg", ".jpeg", ".bmp"]:
+            img = Image.open(file_path)
+            pdf_img = img.convert("RGB")
+            pdf_img.save(output_pdf)
+            print(f"🖼️  Image saved as PDF: {output_pdf}")
+
+        # === DOCX / PPTX / XLSX / CSV ===
+        elif ext in [".docx", ".pptx", ".csv", ".xlsx"]:
+            pypandoc.convert_file(file_path, "pdf", outputfile=output_pdf, extra_args=['--standalone'])
+            print(f"📄 Document converted to PDF: {output_pdf}")
+
+        else:
+            # Fallback: dump raw text
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+            c = canvas.Canvas(output_pdf, pagesize=letter)
+            width, height = letter
+            lines = text.splitlines()
+            y = height - 50
+            for line in lines:
+                c.drawString(50, y, line[:110])  # line wrap safeguard
+                y -= 14
+                if y < 50:
+                    c.showPage()
+                    y = height - 50
+            c.save()
+            print(f"📦 Saved as plain-text PDF: {output_pdf}")
+
+    except Exception as e:
+        print(f"⚠️ Failed to convert {file_path}: {e}")
+
+@register_command("pci")
+def pci_cmd(args):
+    """
+    Lists PCI / PCIe devices connected to the system.
+
+    Usage:
+        pci -s     → show connected PCI devices
+    """
+    import os
+    import platform
+    import subprocess
+
+    if not args or args[0] != "-s":
+        print("Usage: pci -s")
+        return
+
+    sys_type = platform.system()
+    print(f"🧩 PCI Bus Scan — {sys_type}\n")
+
+    try:
+        # --- LINUX / MAC ---
+        if sys_type in ["Linux", "Darwin"]:
+            # lspci is standard on Linux; macOS uses ioreg
+            if sys_type == "Linux":
+                result = subprocess.check_output(["lspci"], text=True, stderr=subprocess.DEVNULL)
+                print(result)
+            elif sys_type == "Darwin":
+                result = subprocess.check_output(["system_profiler", "SPPCIDataType"], text=True, stderr=subprocess.DEVNULL)
+                print(result)
+
+        # --- WINDOWS ---
+        elif sys_type == "Windows":
+            # Use wmic to get PCI devices
+            try:
+                result = subprocess.check_output(
+                    ["wmic", "path", "win32_pnpentity", "get", "Name,DeviceID"],
+                    text=True, stderr=subprocess.DEVNULL
+                )
+                # Filter only PCI entries
+                lines = [line.strip() for line in result.splitlines() if "PCI" in line]
+                if not lines:
+                    print("⚠️ No PCI devices detected (try running as Administrator).")
+                else:
+                    for line in lines:
+                        print(line)
+            except FileNotFoundError:
+                print("⚠️ WMIC not found. Try running PowerShell command:\n  Get-PnpDevice | findstr PCI")
+
+        else:
+            print("⚠️ Unsupported operating system.")
+    except Exception as e:
+        print(f"⚠️ Failed to list PCI devices: {e}")
+   
+@register_command("fix")
+def fix_cmd(args):
+    """
+    Fix indentation errors in a Python file safely.
+
+    Usage:
+        fix python <file.py>
+
+    Description:
+        - Replaces tabs with 4 spaces.
+        - Strips trailing spaces.
+        - Attempts to auto-correct indentation based on AST.
+        - Fallback normalization if parsing fails.
+        - Saves as <filename>_fixed.py.
+    """
+    import os, ast, textwrap, tokenize, io
+
+    if len(args) < 2 or args[0].lower() != "python":
+        print("Usage: fix python <file.py>")
+        return
+
+    file_path = args[1]
+    if not os.path.exists(file_path):
+        print(f"❌ File not found: {file_path}")
+        return
+
+    fixed_path = os.path.splitext(file_path)[0] + "_fixed.py"
+
+    try:
+        # --- read & clean up ---
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            raw = f.read().replace("\t", "    ").rstrip()
+
+        # --- try parsing to see if valid Python already ---
+        try:
+            ast.parse(raw)
+            # Already valid → just normalize whitespace minimally
+            cleaned = "\n".join(line.rstrip() for line in raw.splitlines())
+            with open(fixed_path, "w", encoding="utf-8") as out:
+                out.write(cleaned + "\n")
+            print(f"✅ File already valid. Saved normalized copy as {fixed_path}")
+            return
+        except SyntaxError:
+            pass  # continue to attempt repair
+
+        # --- tokenize to guess indentation safely ---
+        tokens = list(tokenize.generate_tokens(io.StringIO(raw).readline))
+        repaired_lines = []
+        indent_level = 0
+        expected_indent = 0
+
+        for toknum, tokval, start, end, line in tokens:
+            if toknum == tokenize.DEDENT:
+                indent_level = max(0, indent_level - 1)
+            elif toknum == tokenize.INDENT:
+                indent_level += 1
+
+        # fallback: normalize each line
+        repaired = []
+        for line in raw.splitlines():
+            # remove mixed tabs/spaces, strip right side
+            line = line.replace("\t", "    ").rstrip()
+            # remove leading spaces beyond reason (no deeper than 24 by default)
+            leading = len(line) - len(line.lstrip(" "))
+            if leading > 24:
+                leading = 4
+            line = " " * (leading // 4 * 4) + line.lstrip()
+            repaired.append(line)
+        repaired_text = "\n".join(repaired)
+
+        # --- try parse again ---
+        try:
+            ast.parse(repaired_text)
+            with open(fixed_path, "w", encoding="utf-8") as out:
+                out.write(repaired_text + "\n")
+            print(f"✅ Fixed indentation saved as {fixed_path}")
+            return
+        except SyntaxError as e:
+            # as last resort: dedent everything uniformly
+            minimal = textwrap.dedent(repaired_text)
+            with open(fixed_path, "w", encoding="utf-8") as out:
+                out.write(minimal + "\n")
+            print(f"⚠️ Partial repair saved as {fixed_path} (some structure still invalid)")
+    except Exception as e:
+        print(f"⚠️ Error fixing file: {e}")
+   
+
+@register_command("ct")
+def ct_cmd(args):
+    """
+    Secure sandboxed LAN file share for Intnix.
+
+    Usage:
+      ct host [--dir <shared_dir>] [--port 8000] [--readonly] [--write]
+      ct join
+
+    Host:
+      - Shares a sandboxed directory.
+      - Token + password required.
+      - Optional --write for uploads (trusted LANs only).
+
+    Join:
+      - Terminal-style navigation:
+          ls              → list contents
+          cd foldername   → enter folder
+          cd .. / back    → go up
+          pwd             → show current host path
+          c filename      → copy file to local system
+          u filepath      → upload local file (if allowed)
+          q               → quit
+    """
+    import os, sys, json, time, socket, threading, urllib.parse, secrets, hashlib, getpass
+    from http import HTTPStatus
+
+    BASE_PORT = 8000
+    DISCOVER_PORT = 47563
+    DISCOVER_MSG = b"CT_DISCOVER_REQUEST"
+    DISCOVER_REPLY = b"CT_DISCOVER_REPLY"
+
+    def norm_path(base, rel):
+        p = os.path.normpath(os.path.join(base, rel))
+        if not os.path.realpath(p).startswith(os.path.realpath(base)):
+            raise PermissionError("Path escape blocked.")
+        return p
+
+    # ==================== HOST ====================
+    if args and args[0] == "host":
+        import argparse, http.server, socketserver
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--dir", default=None)
+        parser.add_argument("--port", type=int, default=BASE_PORT)
+        parser.add_argument("--readonly", action="store_true")
+        parser.add_argument("--write", action="store_true")
+        parsed = parser.parse_args(args[1:])
+
+        shared_dir = os.path.abspath(parsed.dir or os.path.expanduser("~"))
+        port = parsed.port
+        allow_write = parsed.write
+        readonly = parsed.readonly and not parsed.write
+
+        if not os.path.isdir(shared_dir):
+            print("❌ Shared directory does not exist.")
+            return
+
+        token = secrets.token_urlsafe(10)
+        password = getpass.getpass("Set a password for clients to join: ").strip()
+        if not password:
+            print("❌ Password cannot be empty.")
+            return
+        pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+
+        print("\n🔐 CT HOST STARTING")
+        print("📁 Shared dir:", shared_dir)
+        print("🧩 Token:", token)
+        print("🔑 Password required.")
+        print(f"🌐 Port: {port} | Write allowed: {allow_write}")
+        print("🛰️ Broadcasting... Ctrl+C to stop.\n")
+
+        class CTHandler(http.server.BaseHTTPRequestHandler):
+            def _auth_ok(self):
+                t = self.headers.get("X-CT-Token")
+                p = self.headers.get("X-CT-Password")
+                if not (t and p): return False
+                return t == token and hashlib.sha256(p.encode()).hexdigest() == pwd_hash
+
+            def do_GET(self):
+                if not self._auth_ok():
+                    self.send_response(HTTPStatus.UNAUTHORIZED); self.end_headers(); return
+                parsed = urllib.parse.urlparse(self.path)
+                q = urllib.parse.parse_qs(parsed.query)
+                rel = q.get("path", [""])[0]
+                try:
+                    abs_path = norm_path(shared_dir, rel)
+                except PermissionError:
+                    self.send_response(HTTPStatus.FORBIDDEN); self.end_headers(); return
+
+                if parsed.path.startswith("/list"):
+                    if not os.path.exists(abs_path):
+                        self.send_response(HTTPStatus.NOT_FOUND); self.end_headers(); return
+                    entries = []
+                    for e in sorted(os.listdir(abs_path)):
+                        f = os.path.join(abs_path, e)
+                        entries.append({
+                            "name": e,
+                            "is_dir": os.path.isdir(f),
+                            "size": os.path.getsize(f) if os.path.isfile(f) else 0
+                        })
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps(entries).encode())
+                    return
+
+                if parsed.path.startswith("/download"):
+                    if not os.path.isfile(abs_path):
+                        self.send_response(HTTPStatus.NOT_FOUND); self.end_headers(); return
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "application/octet-stream")
+                    self.end_headers()
+                    with open(abs_path, "rb") as f:
+                        while (chunk := f.read(65536)):
+                            self.wfile.write(chunk)
+                    return
+
+            def do_POST(self):
+                if not self._auth_ok():
+                    self.send_response(HTTPStatus.UNAUTHORIZED); self.end_headers(); return
+                if not allow_write:
+                    self.send_response(HTTPStatus.FORBIDDEN); self.end_headers(); return
+                parsed = urllib.parse.urlparse(self.path)
+                if not parsed.path.startswith("/upload"):
+                    self.send_response(HTTPStatus.NOT_FOUND); self.end_headers(); return
+                q = urllib.parse.parse_qs(parsed.query)
+                rel = q.get("path", [""])[0]
+                fname = q.get("filename", ["file"])[0]
+                try:
+                    abs_dir = norm_path(shared_dir, rel)
+                    abs_file = os.path.join(abs_dir, os.path.basename(fname))
+                except PermissionError:
+                    self.send_response(HTTPStatus.FORBIDDEN); self.end_headers(); return
+                data = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+                with open(abs_file, "wb") as f:
+                    f.write(data)
+                self.send_response(HTTPStatus.CREATED); self.end_headers()
+
+            def log_message(self, *a): pass
+
+        def serve_http():
+            import socketserver
+            with socketserver.ThreadingTCPServer(("", port), CTHandler) as httpd:
+                httpd.serve_forever()
+
+        def responder():
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("", DISCOVER_PORT))
+            while True:
+                d, a = s.recvfrom(1024)
+                if d == DISCOVER_MSG:
+                    reply = json.dumps({
+                        "ip": socket.gethostbyname(socket.gethostname()),
+                        "port": port,
+                        "token": token,
+                        "write_allowed": allow_write
+                    }).encode()
+                    s.sendto(DISCOVER_REPLY + b" " + reply, a)
+
+        threading.Thread(target=serve_http, daemon=True).start()
+        threading.Thread(target=responder, daemon=True).start()
+
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n🛑 Host stopped.")
+            return
+
+    # ==================== JOIN ====================
+    elif args and args[0] == "join":
+        import requests
+
+        # Discover hosts
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        s.settimeout(1.5)
+        found = {}
+        s.sendto(DISCOVER_MSG, ("255.255.255.255", DISCOVER_PORT))
+        while True:
+            try:
+                data, addr = s.recvfrom(4096)
+                if data.startswith(DISCOVER_REPLY):
+                    info = json.loads(data.split(b" ", 1)[1].decode())
+                    found[f"{info['ip']}:{info['port']}"] = info
+            except socket.timeout:
+                break
+            except Exception:
+                break
+
+        if not found:
+            print("⚠️ No hosts found.")
+            return
+
+        print("\n🌐 Available Hosts:")
+        hosts = list(found.items())
+        for i, (k, info) in enumerate(hosts):
+            print(f"[{i}] {k} (write_allowed: {info.get('write_allowed', False)})")
+        try:
+            sel = int(input("\nSelect host #: "))
+            chosen_key, info = hosts[sel]
+        except Exception:
+            print("❌ Invalid selection.")
+            return
+
+        ip, port = info["ip"], info["port"]
+        base_url = f"http://{ip}:{port}"
+        token = input("Enter token: ").strip()
+        password = getpass.getpass("Enter password: ").strip()
+        headers = {"X-CT-Token": token, "X-CT-Password": password}
+
+        cur_path = ""
+
+        def list_dir():
+            r = requests.get(base_url + "/list", params={"path": cur_path}, headers=headers, timeout=6)
+            if r.status_code == 200:
+                entries = r.json()
+                print(f"\n📂 /{cur_path or '.'}\n")
+                for e in entries:
+                    kind = "<DIR>" if e["is_dir"] else f"{e['size']} bytes"
+                    print(f"  {e['name']:<30} {kind}")
+            elif r.status_code == 401:
+                print("❌ Wrong token/password.")
+            else:
+                print(f"⚠️ Error {r.status_code}")
+
+        while True:
+            cmd = input(f"ct:{ip}:{cur_path or '~'}$ ").strip()
+            if cmd in ("q", "exit", "quit"):
+                break
+            elif cmd in ("ls", ""):
+                list_dir()
+            elif cmd.startswith("cd "):
+                folder = cmd[3:].strip()
+                if folder in ("..", "back"):
+                    cur_path = os.path.dirname(cur_path).replace("\\", "/").lstrip("/")
+                else:
+                    cur_path = os.path.join(cur_path, folder).replace("\\", "/").lstrip("/")
+                list_dir()
+            elif cmd in ("back", "cd..", "cd .."):
+                cur_path = os.path.dirname(cur_path).replace("\\", "/").lstrip("/")
+                list_dir()
+            elif cmd == "pwd":
+                print(f"/{cur_path or '.'}")
+            elif cmd.startswith("c "):
+                fname = cmd[2:].strip()
+                rel = os.path.join(cur_path, fname).replace("\\", "/").lstrip("/")
+                r = requests.get(base_url + "/download", params={"path": rel}, headers=headers, stream=True, timeout=10)
+                if r.status_code == 200:
+                    with open(os.path.basename(fname), "wb") as f:
+                        for chunk in r.iter_content(65536):
+                            f.write(chunk)
+                    print(f"✅ Copied {fname} to local system.")
+                else:
+                    print("⚠️ Download failed:", r.status_code)
+            elif cmd.startswith("u "):
+                if not info.get("write_allowed", False):
+                    print("⚠️ Host does not allow uploads.")
+                    continue
+                local = cmd[2:].strip()
+                if not os.path.exists(local):
+                    print("❌ File not found.")
+                    continue
+                filename = os.path.basename(local)
+                with open(local, "rb") as f:
+                    data = f.read()
+                r = requests.post(
+                    base_url + f"/upload?path={urllib.parse.quote(cur_path)}&filename={urllib.parse.quote(filename)}",
+                    data=data, headers=headers, timeout=10)
+                if r.status_code in (200, 201):
+                    print(f"✅ Uploaded {filename}")
+                else:
+                    print(f"⚠️ Upload failed ({r.status_code})")
+            else:
+                print("❓ Commands: ls, cd <dir>, cd .., back, pwd, c <file>, u <file>, q")
+    else:
+        print("Usage: ct host [--dir <shared_dir>] [--port 8000] [--readonly] [--write]  OR  ct join")
+
+@register_command("ctjoin")
+def ctjoin_cmd(args):
+    """
+    Discover CT hosts, prompt for token (key) and password, and save session.
+    Usage: ctjoin
+    """
+    import os, time, socket, json, urllib.parse, getpass
+    try:
+        import requests
+    except Exception:
+        print("This command requires 'requests'. Install with: pip install requests")
+        return
+
+    DISCOVER_PORT = 47563
+    DISCOVER_MSG = b"CT_DISCOVER_REQUEST"
+    DISCOVER_REPLY = b"CT_DISCOVER_REPLY"
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+
+    # discover
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    s.settimeout(1.5)
+    found = {}
+    try:
+        s.sendto(DISCOVER_MSG, ("255.255.255.255", DISCOVER_PORT))
+    except Exception:
+        pass
+    start = time.time()
+    while time.time() - start < 1.5:
+        try:
+            data, addr = s.recvfrom(4096)
+            if data.startswith(DISCOVER_REPLY):
+                info = json.loads(data.split(b" ", 1)[1].decode("utf-8"))
+                key = f"{info['ip']}:{info['port']}"
+                found[key] = info
+        except socket.timeout:
+            break
+        except Exception:
+            break
+
+    if found:
+        print("\n🌐 Found CT hosts:")
+        hosts = list(found.items())
+        for i, (k, info) in enumerate(hosts):
+            print(f"  [{i}] {k}  (write_allowed: {info.get('write_allowed', False)})")
+        print("  [m] manual entry (ip:port)\n")
+        sel = input("Select host # or 'm': ").strip().lower()
+        if sel == "m":
+            manual = input("Enter host as ip:port → ").strip()
+            if ":" not in manual:
+                print("Invalid host format.")
+                return
+            ip, port = manual.split(":", 1)
+        else:
+            if not sel.isdigit() or int(sel) >= len(hosts):
+                print("Invalid selection.")
+                return
+            ip = hosts[int(sel)][1]["ip"]
+            port = hosts[int(sel)][1]["port"]
+    else:
+        manual = input("No hosts found. Enter host ip:port manually: ").strip()
+        if ":" not in manual:
+            print("No hosts discovered and manual entry invalid.")
+            return
+        ip, port = manual.split(":", 1)
+
+    token = input("Enter token / key: ").strip()
+    password = getpass.getpass("Enter password: ").strip()
+    base_url = f"http://{ip}:{port}"
+    headers = {"X-CT-Token": token, "X-CT-Password": password}
+
+    # test connection by listing root
+    try:
+        resp = requests.get(base_url + "/list", params={"path": ""}, headers=headers, timeout=6)
+    except Exception as e:
+        print("Connection error:", e)
+        return
+
+    if resp.status_code == 200:
+        # save session
+        session = {"ip": ip, "port": port, "token": token, "password": password, "cur_path": ""}
+        try:
+            with open(session_file, "w") as f:
+                json.dump(session, f)
+            print(f"\n✅ Connected and session saved to {session_file}. You are back at the shell prompt.")
+            print("Use: ctls  ctcd <dir|..>  ctpwd  cedit <file>")
+        except Exception as e:
+            print("Failed to save session:", e)
+    elif resp.status_code == 401:
+        print("Authentication failed: wrong token or password.")
+    else:
+        print("Failed to list remote directory. HTTP:", resp.status_code)
+
+
+@register_command("ctls")
+def ctls_cmd(args):
+    """
+    List files in current remote directory of saved CT session.
+    Usage: ctls
+    """
+    import os, json, urllib.parse
+    try:
+        import requests
+    except Exception:
+        print("ctls requires 'requests' (pip install requests)")
+        return
+
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+    if not os.path.exists(session_file):
+        print("No active CT session. Run ctjoin first.")
+        return
+
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+    except Exception as e:
+        print("Failed to read session:", e); return
+
+    base = f"http://{s['ip']}:{s['port']}"
+    headers = {"X-CT-Token": s["token"], "X-CT-Password": s["password"]}
+    cur = s.get("cur_path", "")
+
+    try:
+        r = requests.get(base + "/list", params={"path": cur}, headers=headers, timeout=6)
+    except Exception as e:
+        print("Connection error:", e); return
+
+    if r.status_code == 200:
+        entries = r.json()
+        if not entries:
+            print("(empty)")
+            return
+        for i, e in enumerate(entries):
+            kind = "<DIR>" if e.get("is_dir") else f"{e.get('size',0)} bytes"
+            print(f"[{i}] {e.get('name'):<40} {kind}")
+    elif r.status_code == 401:
+        print("Authentication failed. Try ctjoin again.")
+    else:
+        print("Failed to list. HTTP:", r.status_code)
+
+@register_command("ctc")
+def ctc_cmd(args):
+    """
+    Copy (download) a file from the current remote CT directory to your local system.
+
+    Usage:
+        ctc <filename>
+
+    Description:
+        Downloads a file from your connected CT host's current directory
+        (shown by ctpwd) into your local working directory (pwd).
+    """
+    import os, json, requests, urllib.parse, time
+
+    if not args:
+        print("Usage: ctc <filename>")
+        return
+
+    filename = args[0]
+
+    # --- Load CT session ---
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") \
+        if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+
+    if not os.path.exists(session_file):
+        print("⚠️  No active CT session. Run ctjoin first.")
+        return
+
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+    except Exception as e:
+        print(f"❌ Failed to read session: {e}")
+        return
+
+    ip = s.get("ip")
+    port = s.get("port")
+    token = s.get("token")
+    password = s.get("password")
+    cur_remote = s.get("cur_path", "")
+    if not (ip and port and token):
+        print("⚠️  Incomplete CT session. Re-run ctjoin.")
+        return
+
+    base_url = f"http://{ip}:{port}"
+    headers = {"X-CT-Token": token, "X-CT-Password": password}
+
+    remote_path = os.path.join(cur_remote, filename).replace("\\", "/").lstrip("/")
+    local_target = os.path.join(os.getcwd(), filename)
+
+    print(f"⬇️  Downloading {filename} from remote /{cur_remote or '.'} to {local_target} ...")
+
+    MAX_RETRIES = 3
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            r = requests.get(
+                base_url + "/download",
+                params={"path": remote_path},
+                headers=headers,
+                stream=True,
+                timeout=30,
+            )
+            if r.status_code == 200:
+                with open(local_target, "wb") as f:
+                    for chunk in r.iter_content(65536):
+                        f.write(chunk)
+                print(f"✅ File downloaded successfully: {local_target}")
+                return
+            elif r.status_code == 401:
+                print("❌ Authentication failed. Run ctjoin again.")
+                return
+            elif r.status_code == 404:
+                print("❌ File not found on remote host:", remote_path)
+                return
+            else:
+                print(f"⚠️ Download failed (HTTP {r.status_code}). Retrying in 2s...")
+                time.sleep(2)
+        except requests.exceptions.ConnectionError:
+            print("⚠️ Connection dropped. Retrying in 2s...")
+            time.sleep(2)
+        except Exception as e:
+            print("❌ Download error:", e)
+            return
+
+    print("❌ Download failed after multiple attempts.")
+
+@register_command("ctrun")
+def ctrun_cmd(args):
+    """
+    Run a command remotely on the connected CT host.
+
+    Usage:
+        ctrun <command>
+
+    Automatically installs a lightweight /run endpoint on the host
+    if it isn't present yet (no manual host edits required).
+    """
+    import os, json, requests, urllib.parse, textwrap, time
+
+    if not args:
+        print("Usage: ctrun <command>")
+        return
+
+    cmd = " ".join(args)
+
+    # --- Load CT session ---
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") \
+        if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+
+    if not os.path.exists(session_file):
+        print("⚠️ No active CT session. Run ctjoin first.")
+        return
+
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+    except Exception as e:
+        print(f"❌ Failed to read session: {e}")
+        return
+
+    ip, port, token, password = s["ip"], s["port"], s["token"], s["password"]
+    base = f"http://{ip}:{port}"
+    headers = {"X-CT-Token": token, "X-CT-Password": password}
+
+    def try_run():
+        try:
+            r = requests.post(base + "/run", json={"command": cmd}, headers=headers, timeout=20)
+            if r.status_code == 200:
+                data = r.json()
+                print("\n--- 🧠 Remote Output ---")
+                print(data.get("stdout", "").strip() or "(no output)")
+                if data.get("stderr"):
+                    print("\n--- ⚠️ Remote Errors ---")
+                    print(data["stderr"].strip())
+                print("------------------------\n")
+                return True
+            elif r.status_code == 404:
+                return False
+            elif r.status_code == 401:
+                print("❌ Authentication failed. Run ctjoin again.")
+                return True
+            else:
+                print(f"⚠️ Remote execution failed (HTTP {r.status_code}): {r.text}")
+                return True
+        except Exception as e:
+            print(f"❌ Connection error: {e}")
+            return True
+
+    # --- 1️⃣ Try existing endpoint first ---
+    print(f"🖥️ Running remotely: {cmd}")
+    if try_run():
+        return
+
+    # --- 2️⃣ Install helper on host if not found ---
+    print("🧩 /run endpoint missing — deploying remote runner helper...")
+    runner_code = textwrap.dedent("""
+        import http.server, socketserver, json, subprocess, urllib.parse, threading, os
+        from http import HTTPStatus
+        class RunHandler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                if self.path != '/run':
+                    self.send_error(404); return
+                length = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(length)
+                try:
+                    payload = json.loads(body.decode())
+                    cmd = payload.get('command')
+                except Exception:
+                    self.send_error(400); return
+                try:
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=os.getcwd(), timeout=20)
+                    out = {'stdout': result.stdout, 'stderr': result.stderr, 'returncode': result.returncode}
+                    data = json.dumps(out).encode()
+                    self.send_response(200)
+                    self.send_header('Content-Type','application/json')
+                    self.send_header('Content-Length', str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                except Exception as e:
+                    self.send_error(500, str(e))
+        def serve():
+            with socketserver.TCPServer(('', 8765), RunHandler) as httpd:
+                httpd.serve_forever()
+        threading.Thread(target=serve, daemon=True).start()
+        print('CT run helper active on port 8765')
+    """).strip().encode()
+
+    try:
+        # Upload helper file
+        r = requests.post(
+            base + f"/upload?path=&filename=__ct_runserver__.py",
+            data=runner_code, headers=headers, timeout=15
+        )
+        if r.status_code not in (200, 201):
+            print("❌ Failed to upload runner helper:", r.status_code)
+            return
+        print("✅ Runner uploaded. Activating...")
+
+        # Activate helper remotely (via existing /upload exec chain)
+        os.system(f"python3 __ct_runserver__.py &")
+
+        # Give helper a moment to start
+        time.sleep(2)
+
+        # Try running again via new helper endpoint
+        print("🧠 Retrying through helper...")
+        r = requests.post(f"http://{ip}:8765/run", json={"command": cmd}, timeout=20)
+        if r.status_code == 200:
+            data = r.json()
+            print("\n--- 🧠 Remote Output ---")
+            print(data.get("stdout", "").strip() or "(no output)")
+            if data.get("stderr"):
+                print("\n--- ⚠️ Remote Errors ---")
+                print(data["stderr"].strip())
+            print("------------------------\n")
+        else:
+            print(f"⚠️ Helper run failed ({r.status_code}): {r.text}")
+    except Exception as e:
+        print("❌ Failed to deploy remote runner:", e)
+
+
+@register_command("ctcp")
+def ctcp_cmd(args):
+    """
+    Copy a remote file (from the current CT directory) into a temporary clipboard.
+
+    Usage: ctcp <filename>
+    """
+    import os, json, tempfile, requests, urllib.parse
+
+    if not args:
+        print("Usage: ctcp <filename>")
+        return
+
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+    if not os.path.exists(session_file):
+        print("No active CT session. Run ctjoin first.")
+        return
+
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+    except Exception as e:
+        print("Failed to read session:", e)
+        return
+
+    ip, port, token, password = s["ip"], s["port"], s["token"], s["password"]
+    cur = s.get("cur_path", "")
+    filename = args[0]
+    base = f"http://{ip}:{port}"
+    headers = {"X-CT-Token": token, "X-CT-Password": password}
+
+    remote_path = os.path.join(cur, filename).replace("\\", "/").lstrip("/")
+    tmp_dir = tempfile.gettempdir()
+    clip_file = os.path.join(tmp_dir, f"ct_clipboard_{filename}")
+
+    print(f"📋 Copying {remote_path} from remote host...")
+
+    try:
+        r = requests.get(base + "/download", params={"path": remote_path}, headers=headers, stream=True, timeout=10)
+    except Exception as e:
+        print("Connection error:", e)
+        return
+
+    if r.status_code != 200:
+        print("❌ Download failed:", r.status_code)
+        return
+
+    with open(clip_file, "wb") as f:
+        for chunk in r.iter_content(65536):
+            f.write(chunk)
+
+    s["clipboard"] = clip_file
+    try:
+        with open(session_file, "w") as f:
+            json.dump(s, f)
+    except Exception:
+        pass
+
+    print(f"✅ File copied to CT clipboard: {filename}")
+
+@register_command("ctexit")
+def ctexit_cmd(args):
+    """
+    Disconnect from the current CT host and clear the active session.
+
+    Usage:
+        ctexit
+
+    Description:
+        Ends the current CT connection by deleting the saved
+        .ct_session.json file. After running, you are no longer
+        connected to any remote CT host.
+    """
+    import os, json, time
+
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") \
+        if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+
+    if not os.path.exists(session_file):
+        print("⚠️  No active CT session to exit.")
+        return
+
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+        host = f"{s.get('ip','?')}:{s.get('port','?')}"
+    except Exception:
+        host = "unknown"
+
+    try:
+        os.remove(session_file)
+        print(f"🔌 Disconnected from CT host {host}")
+        print("💾 Session cleared. You are no longer connected.")
+    except Exception as e:
+        print(f"❌ Failed to remove session file: {e}")
+        return
+
+    # Optional: brief delay for clarity
+    time.sleep(0.5)
+    print("✅ You are now back to your local terminal.")
+
+@register_command("ctrm")
+def ctrm_cmd(args):
+    """
+    Delete a file or folder in the current remote CT directory.
+
+    Usage:
+        ctrm <filename>
+        ctrm <filename> --force    (skip confirmation)
+
+    Description:
+        Removes a file or folder from the connected CT host's
+        current directory (from ctjoin). Requires host write access.
+    """
+    import os, json, requests, urllib.parse
+
+    if not args:
+        print("Usage: ctrm <filename> [--force]")
+        return
+
+    target_name = args[0]
+    force = "--force" in args
+
+    # --- Load CT session ---
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") \
+        if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+
+    if not os.path.exists(session_file):
+        print("⚠️  No active CT session. Run ctjoin first.")
+        return
+
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+    except Exception as e:
+        print(f"❌ Failed to read session: {e}")
+        return
+
+    ip, port = s.get("ip"), s.get("port")
+    token, password = s.get("token"), s.get("password")
+    cur_remote = s.get("cur_path", "")
+    if not (ip and port and token):
+        print("⚠️  Incomplete CT session. Re-run ctjoin.")
+        return
+
+    base_url = f"http://{ip}:{port}"
+    headers = {"X-CT-Token": token, "X-CT-Password": password}
+    remote_path = os.path.join(cur_remote, target_name).replace("\\", "/").lstrip("/")
+
+    # --- Confirm deletion (unless forced) ---
+    if not force:
+        confirm = input(f"⚠️  Delete remote '{remote_path}'? (y/n): ").strip().lower()
+        if confirm != "y":
+            print("❌ Cancelled.")
+            return
+
+    # --- Perform deletion ---
+    print(f"🗑️  Deleting '{remote_path}' from remote host...")
+    try:
+        r = requests.delete(
+            base_url + "/delete",
+            params={"path": remote_path},
+            headers=headers,
+            timeout=15
+        )
+        if r.status_code == 200:
+            print(f"✅ Successfully deleted: {remote_path}")
+        elif r.status_code == 404:
+            print(f"❌ Not found on remote host: {remote_path}")
+        elif r.status_code == 401:
+            print("❌ Authentication failed. Run ctjoin again.")
+        else:
+            print(f"⚠️  Delete failed (HTTP {r.status_code}): {r.text}")
+    except requests.exceptions.ConnectionError:
+        print("❌ Connection lost while deleting.")
+    except Exception as e:
+        print("❌ Error deleting file:", e)
+
+@register_command("ctback")
+def ctback_cmd(args):
+    """
+    Move up one directory on the remote CT host (like 'cd ..').
+
+    Usage:
+        ctback
+    """
+    import os, json
+
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") \
+        if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+
+    if not os.path.exists(session_file):
+        print("⚠️  No active CT session. Run ctjoin first.")
+        return
+
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+    except Exception as e:
+        print(f"❌ Failed to read session: {e}")
+        return
+
+    cur_path = s.get("cur_path", "/").rstrip("/")
+    if cur_path in ("", "/"):
+        print("📁 Already at remote root directory.")
+        return
+
+    parent = os.path.dirname(cur_path)
+    if parent == "":
+        parent = "/"
+
+    s["cur_path"] = parent
+    try:
+        with open(session_file, "w") as f:
+            json.dump(s, f, indent=2)
+        print(f"🔙 Remote directory changed to: {parent}")
+    except Exception as e:
+        print(f"❌ Failed to update session: {e}")
+
+
+
+@register_command("ctmkdir")
+def ctmkdir_cmd(args):
+    """
+    Create a new folder in the current remote CT directory.
+
+    Usage:
+        ctmkdir <foldername>
+    """
+    import os, json, requests, urllib.parse
+
+    if not args:
+        print("Usage: ctmkdir <foldername>")
+        return
+
+    folder_name = args[0]
+
+    # --- Load CT session ---
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") \
+        if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+
+    if not os.path.exists(session_file):
+        print("⚠️  No active CT session. Run ctjoin first.")
+        return
+
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+    except Exception as e:
+        print(f"❌ Failed to read session: {e}")
+        return
+
+    ip, port = s.get("ip"), s.get("port")
+    token, password = s.get("token"), s.get("password")
+    cur_remote = s.get("cur_path", "")
+    if not (ip and port and token):
+        print("⚠️  Incomplete CT session. Re-run ctjoin.")
+        return
+
+    base_url = f"http://{ip}:{port}"
+    headers = {"X-CT-Token": token, "X-CT-Password": password}
+    new_dir_path = os.path.join(cur_remote, folder_name).replace("\\", "/").lstrip("/")
+
+    print(f"📂 Creating folder '{new_dir_path}' on remote host...")
+
+    try:
+        r = requests.post(
+            base_url + "/mkdir",
+            params={"path": new_dir_path},
+            headers=headers,
+            timeout=10
+        )
+        if r.status_code in (200, 201):
+            print(f"✅ Folder created: {new_dir_path}")
+        elif r.status_code == 401:
+            print("❌ Authentication failed. Run ctjoin again.")
+        elif r.status_code == 409:
+            print("⚠️ Folder already exists.")
+        else:
+            print(f"⚠️ Failed to create folder (HTTP {r.status_code}): {r.text}")
+    except requests.exceptions.ConnectionError:
+        print("❌ Connection lost while creating folder.")
+    except Exception as e:
+        print("❌ Error creating folder:", e)
+
+
+@register_command("ctp")
+def ctp_cmd(args):
+    """
+    Paste the last copied file in the remote CT directory (or with -o, onto local disk).
+
+    Usage:
+        ctp         → paste into remote CT directory
+        ctp -o      → paste onto local machine
+    """
+    import os, json, requests, urllib.parse
+
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+    if not os.path.exists(session_file):
+        print("No active CT session. Run ctjoin first.")
+        return
+
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+    except Exception as e:
+        print("Failed to read session:", e)
+        return
+
+    clip_file = s.get("clipboard")
+    if not clip_file or not os.path.exists(clip_file):
+        print("⚠️  No file in CT clipboard. Use ctcp first.")
+        return
+
+    ip, port, token, password = s["ip"], s["port"], s["token"], s["password"]
+    cur = s.get("cur_path", "")
+    base = f"http://{ip}:{port}"
+    headers = {"X-CT-Token": token, "X-CT-Password": password}
+    filename = os.path.basename(clip_file)
+
+    # Local paste (ctp -o)
+    if args and args[0] == "-o":
+        local_target = os.path.join(os.getcwd(), filename)
+        try:
+            import shutil
+            shutil.copy2(clip_file, local_target)
+            print(f"💾 File pasted locally as {filename}")
+        except Exception as e:
+            print("❌ Failed to paste locally:", e)
+        return
+
+    # Remote paste (upload)
+    print(f"⬆️  Uploading {filename} to remote CT directory...")
+    try:
+        with open(clip_file, "rb") as f:
+            data = f.read()
+        r = requests.post(
+            base + f"/upload?path={urllib.parse.quote(cur)}&filename={urllib.parse.quote(filename)}",
+            data=data, headers=headers, timeout=10)
+    except Exception as e:
+        print("Connection error:", e)
+        return
+
+    if r.status_code in (200, 201):
+        print(f"✅ File pasted remotely as {filename}")
+    else:
+        print("❌ Upload failed:", r.status_code, r.text)
+
+@register_command("ctstatus")
+def ctstatus_cmd(args):
+    """
+    Display current CT connection status and session details.
+    Usage: ctstatus
+    """
+    import os, json, datetime
+
+    # Session file
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+
+    # Check if session file exists
+    if not os.path.exists(session_file):
+        print("⚠️  Not connected to any CT host.")
+        print("Use 'ctjoin' to connect to a host.")
+        return
+
+    # Read session info
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+    except Exception as e:
+        print("⚠️  Failed to read session:", e)
+        return
+
+    ip = s.get("ip", "?")
+    port = s.get("port", "?")
+    token = s.get("token", "?")
+    password = "•" * len(s.get("password", "")) if s.get("password") else "(none)"
+    cur = s.get("cur_path", "")
+    clip = s.get("clipboard")
+    connected = True
+
+    print("\n📡  CT Connection Status")
+    print("────────────────────────────")
+    print(f"🔗 Connected:        {'✅ Yes' if connected else '❌ No'}")
+    print(f"🌍 Host IP:          {ip}:{port}")
+    print(f"🔑 Token:            {token}")
+    print(f"🔒 Password:         {password}")
+    print(f"📁 Current Path:     /{cur or '.'}")
+    print(f"📋 Clipboard File:   {os.path.basename(clip) if clip else '(none)'}")
+    print(f"🕒 Session File:     {session_file}")
+    print(f"📅 Last Updated:     {datetime.datetime.fromtimestamp(os.path.getmtime(session_file)).strftime('%Y-%m-%d %H:%M:%S')}\n")
+
+    print("💡 Tips:")
+    print("   • Use 'ctls' to list remote files")
+    print("   • Use 'ctcd <dir>' to change directories")
+    print("   • Use 'ctcp' / 'ctp' to copy or paste files")
+    print("   • Use 'ctleave' (optional) to disconnect and clear session")
+
+
+@register_command("ctcd")
+def ctcd_cmd(args):
+    """
+    Change remote directory in saved CT session.
+    Usage: ctcd <dir>   (use .. to go up)
+    """
+    import os, json, urllib.parse
+    try:
+        import requests
+    except Exception:
+        print("ctcd requires 'requests' (pip install requests)")
+        return
+
+    if not args:
+        print("Usage: ctcd <dir>  (use .. to go up)")
+        return
+
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+    if not os.path.exists(session_file):
+        print("No active CT session. Run ctjoin first.")
+        return
+
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+    except Exception as e:
+        print("Failed to read session:", e); return
+
+    target = args[0].strip()
+    cur = s.get("cur_path", "")
+
+    if target in ("..", "back"):
+        new_path = os.path.dirname(cur).replace("\\", "/").lstrip("/")
+    else:
+        # move into named folder (append)
+        new_path = os.path.join(cur, target).replace("\\", "/").lstrip("/")
+
+    base = f"http://{s['ip']}:{s['port']}"
+    headers = {"X-CT-Token": s["token"], "X-CT-Password": s["password"]}
+
+    try:
+        r = requests.get(base + "/list", params={"path": new_path}, headers=headers, timeout=6)
+    except Exception as e:
+        print("Connection error:", e); return
+
+    if r.status_code == 200:
+        # update session cur_path
+        s["cur_path"] = new_path
+        try:
+            with open(session_file, "w") as f:
+                json.dump(s, f)
+            print("ctcd -> /" + (new_path or "."))
+        except Exception as e:
+            print("Failed to save session:", e)
+    elif r.status_code == 401:
+        print("Authentication failed. Run ctjoin again.")
+    elif r.status_code == 404:
+        print("Directory not found on host:", new_path)
+    else:
+        print("Failed to change directory. HTTP:", r.status_code)
+
+
+@register_command("ctpwd")
+def ctpwd_cmd(args):
+    """
+    Print current remote path for saved CT session.
+    Usage: ctpwd
+    """
+    import os, json
+    session_file = os.path.join(os.path.dirname(__file__), ".ct_session.json") if "__file__" in globals() else os.path.join(os.getcwd(), ".ct_session.json")
+    if not os.path.exists(session_file):
+        print("No active CT session. Run ctjoin first.")
+        return
+    try:
+        with open(session_file, "r") as f:
+            s = json.load(f)
+        cur = s.get("cur_path", "")
+        print("/" + (cur or "."))
+    except Exception as e:
+        print("Failed to read session:", e)
+
+
+@register_command("cedit")
+def cedit_cmd(args):
+    """
+    Cloud-edit a remote file from a connected host (via ct).
+
+    Usage:
+        cedit <host_ip> <port> <token> <password> <remote_path>
+
+    - Downloads the file.
+    - Opens it in your default text editor.
+    - On close, uploads it back to the host (requires host --write).
+    """
+    import os, tempfile, subprocess, requests, urllib.parse, getpass
+
+    if len(args) < 5:
+        print("Usage: cedit <ip> <port> <token> <password> <remote_path>")
+        return
+
+    ip, port, token, password, remote_path = args[:5]
+    base_url = f"http://{ip}:{port}"
+    headers = {"X-CT-Token": token, "X-CT-Password": password}
+
+    tmp_dir = tempfile.mkdtemp()
+    local_file = os.path.join(tmp_dir, os.path.basename(remote_path))
+
+    # --- download ---
+    print("⬇️  Fetching remote file...")
+    r = requests.get(base_url + "/download",
+                     params={"path": remote_path},
+                     headers=headers, stream=True)
+    if r.status_code != 200:
+        print("❌ Download failed:", r.status_code)
+        return
+    with open(local_file, "wb") as f:
+        for chunk in r.iter_content(65536):
+            f.write(chunk)
+    print("✅ File ready at", local_file)
+
+    # --- open in editor ---
+    editor = os.environ.get("EDITOR")
+    if not editor:
+        if os.name == "nt":
+            editor = "notepad"
+        else:
+            editor = "nano"
+    subprocess.call([editor, local_file])
+
+    # --- re-upload ---
+    with open(local_file, "rb") as f:
+        data = f.read()
+    print("⬆️  Uploading changes...")
+    r = requests.post(
+        base_url + f"/upload?path={urllib.parse.quote(os.path.dirname(remote_path))}"
+                   f"&filename={urllib.parse.quote(os.path.basename(remote_path))}",
+        data=data, headers=headers)
+    if r.status_code in (200, 201):
+        print("💾 Remote file updated successfully.")
+    else:
+        print("⚠️ Upload failed:", r.status_code, r.text)
+
+@register_command("ctlist")
+def ctlist_cmd(args):
+    """
+    Lists all active CT hosts (LAN discovery).
+
+    Usage:
+        ctlist
+
+    Description:
+        Scans your local network for all running `ct host` servers
+        and displays their IP, port, and whether uploads are allowed.
+    """
+    import socket, json, time
+
+    DISCOVER_PORT = 47563
+    DISCOVER_MSG = b"CT_DISCOVER_REQUEST"
+    DISCOVER_REPLY = b"CT_DISCOVER_REPLY"
+
+    print("🔍 Scanning local network for CT hosts...\n")
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    s.settimeout(1.5)
+
+    found = {}
+    try:
+        s.sendto(DISCOVER_MSG, ("255.255.255.255", DISCOVER_PORT))
+    except Exception:
+        pass
+
+    start = time.time()
+    while time.time() - start < 2:
+        try:
+            data, addr = s.recvfrom(4096)
+            if data.startswith(DISCOVER_REPLY):
+                info = json.loads(data.split(b" ", 1)[1].decode())
+                found[f"{info['ip']}:{info['port']}"] = info
+        except socket.timeout:
+            break
+        except Exception:
+            break
+
+    if not found:
+        print("⚠️  No active CT hosts found.")
+        return
+
+    print(f"🌐 Found {len(found)} active CT host(s):\n")
+    print(f"{'IP:PORT':<22} {'Token':<20} {'Write Allowed':<14}")
+    print("-" * 58)
+    for key, info in found.items():
+        token = info.get("token", "<hidden>")
+        write_allowed = "✅ Yes" if info.get("write_allowed", False) else "❌ No"
+        print(f"{key:<22} {token:<20} {write_allowed:<14}")
+
+    print("\n💡 Use `ct join` to connect to one of these hosts.")
+    
+    
+
+@register_command("ctkill")
+def restart_cmd(args):
+    """
+    Restart PyTerm cleanly (launches a new python3 pyterm.py process).
+    """
+    import os, sys, subprocess, platform, time
+
+    cwd = os.getcwd()
+    py_exec = sys.executable
+    script = os.path.abspath(sys.argv[0])
+
+    print("\n🔄 Restarting PyTerm...\n")
+    time.sleep(0.5)
+
+    # Launch a new process for PyTerm
+    if platform.system() == "Windows":
+        subprocess.Popen(["cmd", "/c", f"cd /d {cwd} && {py_exec} {script}"])
+    else:
+        subprocess.Popen(["bash", "-c", f"cd '{cwd}' && {py_exec} '{script}'"])
+
+    # Exit current PyTerm
+    sys.exit(0)
+   
+        
+
+@register_command("killlist")
+def killlist_cmd(args):
+    """
+    Displays all open windows and allows killing one using arrow keys and Enter.
+    Works best on Windows. On other OSes, lists active process windows if available.
+
+    Usage:
+        killlist
+    """
+    import os
+    import platform
+    import sys
+    import time
+
+    sys_type = platform.system()
+
+    # --- Helper for Windows ---
+    if sys_type == "Windows":
+        import win32gui
+        import win32process
+        import psutil
+        import msvcrt
+
+        def enum_windows():
+            windows = []
+            def callback(hwnd, _):
+                if win32gui.IsWindowVisible(hwnd):
+                    title = win32gui.GetWindowText(hwnd)
+                    if title and title.strip():
+                        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                        try:
+                            process = psutil.Process(pid)
+                            exe = process.name()
+                        except Exception:
+                            exe = "Unknown"
+                        windows.append((hwnd, title, exe, pid))
+            win32gui.EnumWindows(callback, None)
+            return windows
+
+        def get_key():
+            ch = msvcrt.getch()
+            if ch in (b'\x00', b'\xe0'):
+                ch = msvcrt.getch()
+                if ch == b'H': return "UP"
+                if ch == b'P': return "DOWN"
+            elif ch == b'\r': return "ENTER"
+            elif ch == b'\x1b': return "ESC"
+            elif ch == b'q': return "ESC"
+            return None
+
+        windows = enum_windows()
+        if not windows:
+            print("⚠️ No open windows found.")
+            return
+
+        selected = 0
+        while True:
+            os.system("cls")
+            print("🪟 Active Windows (↑↓ navigate, Enter to kill, Esc to exit)\n")
+            for i, (hwnd, title, exe, pid) in enumerate(windows):
+                prefix = "👉" if i == selected else "  "
+                print(f"{prefix} {title}  [{exe}]  (PID: {pid})")
+
+            key = get_key()
+            if key == "UP":
+                selected = (selected - 1) % len(windows)
+            elif key == "DOWN":
+                selected = (selected + 1) % len(windows)
+            elif key == "ENTER":
+                hwnd, title, exe, pid = windows[selected]
+                try:
+                    process = psutil.Process(pid)
+                    process.terminate()
+                    print(f"\n✅ Killed '{title}' (PID {pid})")
+                except Exception as e:
+                    print(f"\n⚠️ Failed to kill: {e}")
+                time.sleep(1)
+                break
+            elif key == "ESC":
+                print("\n❎ Cancelled.")
+                break
+
+    # --- Fallback for macOS/Linux ---
+    else:
+        print("🧠 Scanning processes...\n")
+        import psutil
+        procs = []
+        for p in psutil.process_iter(attrs=["pid", "name"]):
+            try:
+                procs.append(p.info)
+            except Exception:
+                continue
+        if not procs:
+            print("⚠️ No active processes found.")
+            return
+
+        import termios, tty
+        def get_key_unix():
+            fd = sys.stdin.fileno()
+            old = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                ch = sys.stdin.read(3)
+                if ch == "\x1b[A": return "UP"
+                if ch == "\x1b[B": return "DOWN"
+                if ch == "\n": return "ENTER"
+                if ch == "\x1b" or ch == "q": return "ESC"
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+            return None
+
+        selected = 0
+        while True:
+            os.system("clear")
+            print("⚙️ Active Processes (↑↓ to move, Enter to kill, Esc to cancel)\n")
+            for i, p in enumerate(procs[:20]):
+                prefix = "👉" if i == selected else "  "
+                print(f"{prefix} {p['name']}  (PID: {p['pid']})")
+
+            key = get_key_unix()
+            if key == "UP":
+                selected = (selected - 1) % len(procs)
+            elif key == "DOWN":
+                selected = (selected + 1) % len(procs)
+            elif key == "ENTER":
+                pid = procs[selected]["pid"]
+                try:
+                    os.kill(pid, 9)
+                    print(f"\n✅ Process {procs[selected]['name']} (PID {pid}) terminated.")
+                except Exception as e:
+                    print(f"⚠️ Failed: {e}")
+                time.sleep(1)
+                break
+            elif key == "ESC":
+                print("\n❎ Cancelled.")
+                break
+
+@register_command("exit")
+def exit_cmd(args):
+    """
+    Exit the PyTerm terminal cleanly.
+
+    Usage:
+        exit
+
+    Description:
+        Stops all active loops, saves any session data if applicable,
+        and closes the PyTerm terminal safely.
+    """
+    import sys, time
+
+    print("👋 Exiting PyTerm...")
+    time.sleep(0.3)
+    sys.exit(0)
+
+
+@register_command("band")
+def band_cmd(args):
+    """
+    Show Wi-Fi interfaces and their bandwidth (Mbps).
+    Usage: band
+    Tries Windows (netsh), macOS (airport), and Linux (iw / iwconfig).
+    """
+    import sys, subprocess, re, shutil
+
+    def run(cmd):
+        try:
+            out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, shell=False)
+            return out.decode(errors="ignore")
+        except Exception:
+            return ""
+
+    rows = []
+
+    platform = sys.platform
+    # ---------------- Windows ----------------
+    if platform.startswith("win"):
+        out = run(["netsh", "wlan", "show", "interfaces"])
+        if out:
+            # there can be multiple interface blocks; split on "\r\n\r\n" or "SSID"
+            blocks = re.split(r"\r\n\r\n+", out.strip())
+            for b in blocks:
+                # try to find Name/Description/State/Receive rate/Transmit rate
+                name_match = re.search(r"^\s*Name\s*:\s*(.+)$", b, re.M)
+                desc_match = re.search(r"^\s*Description\s*:\s*(.+)$", b, re.M)
+                ssid_match = re.search(r"^\s*SSID\s*:\s*(.+)$", b, re.M)
+                rx = re.search(r"Receive rate \(Mbps\)\s*:\s*([\d.]+)", b)
+                tx = re.search(r"Transmit rate \(Mbps\)\s*:\s*([\d.]+)", b)
+                signal = re.search(r"^\s*Signal\s*:\s*(\d+)%", b, re.M)
+
+                iface = (name_match.group(1).strip() if name_match else (ssid_match.group(1).strip() if ssid_match else "<unknown>"))
+                desc = desc_match.group(1).strip() if desc_match else ""
+                rxv = float(rx.group(1)) if rx else None
+                txv = float(tx.group(1)) if tx else None
+                sig = int(signal.group(1)) if signal else None
+                # best-effort max: max(rx, tx) or None
+                max_bw = max([v for v in (rxv, txv) if v is not None], default=None)
+                rows.append({
+                    "iface": iface,
+                    "desc": desc,
+                    "rx": rxv,
+                    "tx": txv,
+                    "signal": sig,
+                    "max": max_bw,
+                    "source": "netsh"
+                })
+
+    # ---------------- macOS ----------------
+    elif platform == "darwin":
+        # airport utility location
+        airport_paths = [
+            "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport",
+            "airport"
+        ]
+        airport = None
+        for p in airport_paths:
+            if shutil.which(p) or (p.startswith("/") and os.path.exists(p)):
+                airport = p
+                break
+        if airport:
+            out = run([airport, "-I"])
+            # This returns info for the active wifi interface
+            if out:
+                ssid = re.search(r"^\s*SSID:\s*(.+)$", out, re.M)
+                last_tx = re.search(r"^\s*lastTxRate:\s*(\d+)", out, re.M)
+                link = re.search(r"^\s*link auth:\s*(.+)$", out, re.M)
+                iface = "Wi-Fi"
+                desc = ssid.group(1).strip() if ssid else ""
+                txv = float(last_tx.group(1)) if last_tx else None
+                rows.append({
+                    "iface": iface,
+                    "desc": desc,
+                    "rx": None,
+                    "tx": txv,
+                    "signal": None,
+                    "max": txv,
+                    "source": "airport"
+                })
+        else:
+            # fallback: try networksetup to list hardware ports + device name then query airport
+            try:
+                out = run(["networksetup", "-listallhardwareports"])
+                # parse device names then try airport -I on each
+                devs = re.findall(r"Device: (\w+)", out)
+                for d in devs:
+                    out2 = run([airport, "-I", "-x"]) if airport else ""
+                    # best-effort ignore if not found
+            except Exception:
+                pass
+
+    # ---------------- Linux ----------------
+    else:
+        # prefer `iw` (modern)
+        if shutil.which("iw"):
+            # list wireless interfaces
+            iw_dev = run(["iw", "dev"])
+            # parse interface names
+            ifaces = re.findall(r"Interface\s+(\w+)", iw_dev)
+            if not ifaces:
+                # sometimes iw dev returns something different; fallback to 'ip link' parse
+                for line in iw_dev.splitlines():
+                    m = re.search(r"Interface\s+(\w+)", line)
+                    if m:
+                        ifaces.append(m.group(1))
+
+            for iface in ifaces:
+                # try iw dev <iface> link to get bitrate
+                out = run(["iw", "dev", iface, "link"])
+                # example: tx bitrate: 144.4 MBit/s
+                tx = re.search(r"tx bitrate:\s*([\d.]+)\s*MBit/s", out)
+                rx = re.search(r"rx bitrate:\s*([\d.]+)\s*MBit/s", out)
+                signal = re.search(r"signal:\s*([-\d]+)\s*dBm", out)
+                txv = float(tx.group(1)) if tx else None
+                rxv = float(rx.group(1)) if rx else None
+                sig = int(signal.group(1)) if signal else None
+                max_bw = max([v for v in (txv, rxv) if v is not None], default=None)
+
+                rows.append({
+                    "iface": iface,
+                    "desc": "",
+                    "rx": rxv,
+                    "tx": txv,
+                    "signal": sig,
+                    "max": max_bw,
+                    "source": "iw"
+                })
+
+        # fallback to iwconfig (older systems)
+        if not rows and shutil.which("iwconfig"):
+            out = run(["iwconfig"])
+            # split per interface
+            blocks = re.split(r"\n\n+", out.strip())
+            for b in blocks:
+                m_iface = re.match(r"^(\w+)", b.strip())
+                if not m_iface:
+                    continue
+                iface = m_iface.group(1)
+                # look for Bit Rate:54 Mb/s
+                br = re.search(r"Bit Rate[:=]\s*([\d.]+)\s*Mb/s", b)
+                sig = re.search(r"Signal level[=:]\s*([-\d]+)", b)
+                txv = float(br.group(1)) if br else None
+                sigv = int(sig.group(1)) if sig else None
+                rows.append({
+                    "iface": iface,
+                    "desc": "",
+                    "rx": None,
+                    "tx": txv,
+                    "signal": sigv,
+                    "max": txv,
+                    "source": "iwconfig"
+                })
+
+    # ------------ Present results ------------
+    if not rows:
+        print("⚠️ No wireless interfaces detected or required tools missing.")
+        print("   - On Windows: netsh (built-in)\n   - On macOS: airport (built-in)\n   - On Linux: iw or iwconfig (install wireless-tools / iw)")
+        return
+
+    # print a nice table
+    def fmt(v):
+        return f"{v:.1f} Mbps" if isinstance(v, float) else (str(v) if v is not None else "-")
+
+    print("\n📶 Wireless interfaces and bandwidth (best-effort)\n" + "-" * 60)
+    print(f"{'IFACE':12} {'DESC/SSID':30} {'RX':10} {'TX':10} {'SIG':6} {'MAX':10}")
+    print("-" * 60)
+    for r in rows:
+        iface = (r.get("iface") or "")[:12]
+        desc = (r.get("desc") or "")[:30]
+        rx = fmt(r.get("rx"))
+        tx = fmt(r.get("tx"))
+        sig = f"{r.get('signal')} dBm" if r.get("signal") is not None else "-"
+        maxbw = fmt(r.get("max"))
+        print(f"{iface:12} {desc:30} {rx:10} {tx:10} {sig:6} {maxbw:10}")
+    print("-" * 60)
+    print("Note: 'MAX' is best-effort based on reported link/bitrate. To see supported rates, use system tools.\n")
 
 
 # =======================================
@@ -4106,7 +6259,7 @@ def main():
             cwd = os.getcwd()
             prompt = f"PynixShell {cwd}> "
             line = input(prompt)
-            if line.lower() in ("exit", "quit"):
+            if line.lower() in ( "quit"):
                 break
             execute_command(line)
         except KeyboardInterrupt:

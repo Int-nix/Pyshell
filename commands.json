@@ -285,10 +285,151 @@
 },
 
 {
+  "name": "loop",
+  "category": "control",
+  "desc": "Repeats a command multiple times or indefinitely, with optional delay and stop control.",
+  "definition": "Usage:\n  loop -t <count> <command> [args...]     # Run a command <count> times\n  loop -i <command> [args...]             # Run indefinitely until stopped\n  loop -d <command> [args...]             # Run once (structured)\n  loop -t 5 -s 2 <command>                # Run 5 times, 2s delay between\n  loop -i -s 3 <command>                  # Run forever, 3s delay\n\nUse 'break' or 'endloop' to stop all active loops."
+}
+,
+
+
+  {
+    "name": "ct",
+    "category": "network",
+    "desc": "Host or join a secure sandboxed LAN file share with optional uploads and password protection."
+  },
+  {
+    "name": "ctjoin",
+    "category": "network",
+    "desc": "Discover and connect to available CT hosts over LAN or manually via IP:Port."
+  },
+  {
+    "name": "ctls",
+    "category": "network",
+    "desc": "List files in the current remote CT directory."
+  },
+  {
+  "name": "band",
+  "category": "network",
+  "desc": "Displays all connected Wi-Fi interfaces and their bandwidth.",
+  "definition": "Usage: band\n\nScans for all wireless network interfaces on the current machine and displays their current transmit and receive speeds in Mbps, along with signal strength when available.\n\nSupported Platforms:\n  • Windows  → Uses 'netsh wlan show interfaces'\n  • macOS    → Uses 'airport -I'\n  • Linux    → Uses 'iw' or 'iwconfig'\n\nOutput Columns:\n  IFACE   – Interface name\n  DESC    – Description or SSID\n  RX/TX   – Receive and transmit rates in Mbps\n  SIG     – Signal strength (if available)\n  MAX     – Estimated maximum bandwidth\n\nExample:\n  band\n\nNotes:\n  • Results are best-effort and may vary depending on driver support.\n  • Does not require internet access or external packages."
+}
+,
+  
+  {
+    "name": "ctc",
+    "category": "network",
+    "desc": "Copy (download) a file from the remote CT host to your local system."
+  },
+  {
+    "name": "ctrm",
+    "category": "network",
+    "desc": "Delete a remote file or folder on the CT host."
+  },
+  {
+    "name": "ctmkdir",
+    "category": "network",
+    "desc": "Create a new folder in the current remote CT directory."
+  },
+  {
+    "name": "ctback",
+    "category": "network",
+    "desc": "Move up one directory on the remote CT host."
+  },
+  {
+    "name": "ctcd",
+    "category": "network",
+    "desc": "Change remote directory in your active CT session."
+  },
+  {
+    "name": "ctpwd",
+    "category": "network",
+    "desc": "Show the current remote directory path in your CT session."
+  },
+  {
+    "name": "ctcp",
+    "category": "network",
+    "desc": "Copy a remote file into a temporary CT clipboard for later pasting."
+  },
+  {
+    "name": "ctp",
+    "category": "network",
+    "desc": "Paste a file from CT clipboard to the remote or local system."
+  },
+  {
+    "name": "ctrun",
+    "category": "network",
+    "desc": "Run a command remotely on the connected CT host."
+  },
+  {
+    "name": "ctstatus",
+    "category": "network",
+    "desc": "Display your current CT connection details and clipboard status."
+  },
+  {
+    "name": "ctexit",
+    "category": "network",
+    "desc": "Disconnect from your CT host and clear the session."
+  },
+  {
+    "name": "ctlist",
+    "category": "network",
+    "desc": "List all active CT hosts on the LAN."
+  },
+  {
+    "name": "ctkill",
+    "category": "network",
+    "desc": "Restart PyTerm cleanly, reloading all CT network commands."
+  }
+,
+
+{
+  "name": "fix",
+  "category": "dev",
+  "desc": "Automatically fixes indentation errors in Python files.",
+  "definition": "Usage:\n  fix python <file.py>\n\nNormalizes indentation (4 spaces), converts tabs, and attempts to repair structure. Creates a backup as <file>_fixed.py."
+}
+,
+
+
+
+{
+  "name": "pdpf",
+  "category": "utility",
+  "desc": "Converts any supported file type to a PDF (universal printer).",
+  "definition": "Usage:\n  pdpf <file>\n  pdpf <file> [output.pdf]\n\nSupported types: .txt, .md, .html, .png, .jpg, .jpeg, .bmp, .docx, .pptx, .csv, .xlsx.\n\nAutomatically detects the file type and prints to a PDF using ReportLab and Pandoc."
+}
+,
+
+{
+  "name": "killlist",
+  "category": "system",
+  "desc": "Lists all open windows or active processes and allows killing them with an arrow-key menu.",
+  "definition": "Usage:\n  killlist\n\nOpens an interactive list of active windows (on Windows) or processes (on macOS/Linux). Use arrow keys to navigate, Enter to terminate, and Esc to cancel."
+}
+,
+
+{
+  "name": "chown",
+  "category": "user",
+  "desc": "Changes the owner of a file via an interactive menu with arrow key navigation.",
+  "definition": "Usage:\n  chown <filename>\n\nOpens a terminal-based menu that lists all users. Navigate with arrow keys and press Enter to set a new owner. A cancel option is included.\n\nOwnership data is saved in <filename>.meta.json for tracking within Intnix."
+}
+,
+
+{
+  "name": "gawk",
+  "category": "file",
+  "desc": "Performs text replacement inside a file, similar to 'awk' or 'sed'.",
+  "definition": "Usage:\n  gawk <search_text> <filename> <replace_text>\n\nDescription:\n  Replaces all occurrences of <search_text> in the specified file with <replace_text>. The file is updated in place.\n\nExamples:\n  gawk hello file.txt world\n  gawk [TODO] notes.txt DONE"
+}
+,
+
+{
   "name": "launch",
   "category": "system",
-  "desc": "Launches an installed or registered program",
-  "definition": "Opens a specific application or executable that is recognized by PyNixShell. Works similarly to the Linux `open` or Windows `start` command.\n\nUsage:\n  launch <program>      → launches the specified program\n  launch <program> <args> → runs the program with optional arguments\n\nExamples:\n  launch notepad         → opens Notepad\n  launch chrome https://intnix.app → opens Google Chrome with a URL\n  launch terminal        → opens a new PyNixShell terminal window\n\nTip: Use the `programs` command first to see the list of available apps."
+  "desc": "Launches a program, script, or file from the terminal. Supports launching in a new terminal window using the -n flag.",
+  "definition": "Usage:\n  launch <number|filename>\n  launch -n <number|filename>\n\nDescription:\n  Launches a program from the last listed program list or by direct path.\n  When run normally, the file opens in the background or via its default handler.\n  When the -n flag is used, it opens in a new terminal window (running 'python <file>.py' for scripts).\n\nExamples:\n  launch 2\n  launch script.py\n  launch -n script.py\n  launch -n 3"
 }
 ,
 
